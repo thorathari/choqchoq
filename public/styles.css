@@ -50,8 +50,8 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 32rem),
-    radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.12), transparent 28rem),
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.11), transparent 30rem),
+    radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.08), transparent 28rem),
     linear-gradient(145deg, var(--bg), var(--bg-2));
   color: var(--ink);
   font-family: "Segoe UI", "Noto Sans KR", system-ui, sans-serif;
@@ -119,7 +119,7 @@ select:focus {
 }
 
 .shell {
-  max-width: 1440px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 28px;
 }
@@ -223,8 +223,9 @@ select:focus {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 18px;
+  grid-template-columns: minmax(0, 860px) 340px;
+  justify-content: center;
+  gap: 16px;
 }
 
 .main-column,
@@ -237,8 +238,8 @@ select:focus {
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
+  border-radius: 12px;
+  box-shadow: var(--soft-shadow);
   backdrop-filter: blur(14px);
 }
 
@@ -261,7 +262,7 @@ select:focus {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 18px 0;
+  padding: 14px 16px 0;
 }
 
 .panel-header h2,
@@ -272,7 +273,7 @@ select:focus {
 }
 
 .panel-body {
-  padding: 18px;
+  padding: 14px 16px 16px;
 }
 
 .hero-body {
@@ -321,7 +322,7 @@ select:focus {
 
 .form {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .form-row {
@@ -381,12 +382,13 @@ select:focus {
 }
 
 .message {
-  padding: 12px 14px;
+  padding: 9px 11px;
   border: 1px solid rgba(40, 90, 166, 0.18);
   border-radius: 8px;
   background: rgba(40, 90, 166, 0.1);
   color: var(--blue);
   margin-bottom: 14px;
+  font-size: 13px;
 }
 
 .problem {
@@ -452,6 +454,27 @@ select:focus {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.question-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.55fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.question-primary-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.question-primary-row .primary {
+  min-width: 112px;
+}
+
+.round-transfer-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
 }
 
 .actions {
@@ -574,7 +597,7 @@ select:focus {
 .user-list,
 .score-list {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -582,16 +605,16 @@ select:focus {
 
 .users-body {
   display: grid;
-  gap: 8px;
-  padding-top: 12px;
+  gap: 7px;
+  padding-top: 10px;
 }
 
 .log-item,
 .user-item,
 .score-item {
   display: grid;
-  gap: 5px;
-  padding: 8px 9px;
+  gap: 6px;
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel-2);
@@ -603,6 +626,57 @@ select:focus {
   align-items: center;
 }
 
+.user-main {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.user-avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-solid);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  user-select: none;
+}
+
+.user-avatar.playing {
+  border-color: rgba(22, 163, 74, 0.34);
+  color: var(--ok);
+}
+
+.user-avatar.away {
+  border-color: rgba(216, 91, 63, 0.32);
+  color: var(--danger);
+}
+
+.user-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.user-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.user-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .user-name,
 .score-name {
   font-weight: 750;
@@ -610,8 +684,19 @@ select:focus {
 }
 
 .user-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 13px;
   line-height: 1.2;
+}
+
+.user-score {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .user-controls {
@@ -628,8 +713,8 @@ select:focus {
 }
 
 .user-controls .status-button {
-  min-height: 26px;
-  padding: 0 7px;
+  min-height: 24px;
+  padding: 0 6px;
   font-size: 11px;
 }
 
@@ -667,14 +752,14 @@ select:focus {
 }
 
 .chat-panel {
-  min-height: 620px;
+  min-height: 600px;
 }
 
 .chat-body {
   display: grid;
-  grid-template-rows: minmax(360px, 1fr) auto;
-  gap: 12px;
-  height: clamp(480px, 66vh, 760px);
+  grid-template-rows: minmax(380px, 1fr) auto;
+  gap: 8px;
+  height: clamp(500px, 68vh, 780px);
   min-height: 0;
   position: relative;
 }
@@ -682,18 +767,18 @@ select:focus {
 .chat-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   min-height: 0;
   max-height: none;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 4px;
+  padding: 2px 3px;
 }
 
 .chat-message {
   display: grid;
   justify-items: start;
-  gap: 4px;
+  gap: 2px;
 }
 
 .chat-message.mine {
@@ -703,20 +788,21 @@ select:focus {
 .chat-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 4px;
-  font-size: 12px;
+  gap: 5px;
+  padding: 0 3px;
+  font-size: 11px;
   color: var(--muted);
 }
 
 .chat-bubble {
-  max-width: min(74%, 560px);
-  padding: 10px 12px;
+  max-width: min(72%, 520px);
+  padding: 7px 9px;
   border: 1px solid var(--line);
   border-radius: 16px 16px 16px 4px;
   background: var(--panel-2);
   overflow-wrap: anywhere;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.34;
 }
 
 .chat-message.mine .chat-bubble {
@@ -742,7 +828,7 @@ select:focus {
 .chat-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 6px;
 }
 
 .scroll-bottom-button {
@@ -803,6 +889,7 @@ select:focus {
 @media (max-width: 980px) {
   .layout {
     grid-template-columns: 1fr;
+    justify-content: stretch;
   }
 }
 
@@ -865,6 +952,7 @@ select:focus {
   }
 
   .grid-2,
+  .question-grid,
   .admin-grid {
     grid-template-columns: 1fr;
   }
@@ -912,24 +1000,36 @@ select:focus {
     flex: 1;
   }
 
-  .chat-form {
+  .user-item {
     grid-template-columns: 1fr;
   }
 
+  .user-controls {
+    justify-content: stretch;
+  }
+
+  .user-controls .status-buttons {
+    width: 100%;
+  }
+
+  .chat-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   .scroll-bottom-button {
-    bottom: 104px;
+    bottom: 60px;
   }
 
   .chat-panel {
-    min-height: 520px;
+    min-height: 560px;
   }
 
   .chat-body {
-    height: clamp(420px, 62vh, 620px);
-    grid-template-rows: minmax(300px, 1fr) auto;
+    height: clamp(460px, 66vh, 660px);
+    grid-template-rows: minmax(340px, 1fr) auto;
   }
 
   .chat-bubble {
-    max-width: 88%;
+    max-width: 86%;
   }
 }

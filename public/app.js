@@ -345,9 +345,9 @@ function hostingView(isHost) {
 
   return html`
     <form class="form" data-form="question">
-      <div class="grid-2">
+      <div class="question-grid">
         <div class="form-row">
-          <label>분류</label>
+          <label>주제</label>
           <input name="category" placeholder="사물" maxlength="20" required />
         </div>
         <div class="form-row">
@@ -355,8 +355,10 @@ function hostingView(isHost) {
           <input name="answer" placeholder="지우개" maxlength="30" required />
         </div>
       </div>
-      <div class="actions">
+      <div class="question-primary-row">
         <button class="primary" type="submit">문제 내기</button>
+      </div>
+      <div class="round-transfer-row">
         <button class="small-button warning" type="button" data-action="transfer">출제권 양도</button>
       </div>
     </form>
@@ -496,19 +498,30 @@ function usersPanel() {
   `;
 }
 
+function scoreForUser(userId) {
+  return state.scores.find((row) => row.userId === userId)?.score ?? 0;
+}
+
 function userItem(user) {
   const isHost = user.id === state.game.hostId;
   const isBan = user.id === state.game.answerBanUserId;
   const canAdmin = state.me.role === "admin";
+  const initial = escapeHtml(String(user.nickname || "?").slice(0, 1));
   return html`
     <li class="user-item">
-      <div>
-        <div class="user-name">${escapeHtml(user.nickname)}</div>
-        <div class="status-line">
-          <span class="badge ${user.status}">${statusLabels[user.status]}</span>
-          ${isHost ? `<span class="badge host">출제자</span>` : ""}
-          ${user.role === "admin" ? `<span class="badge admin">관리자</span>` : ""}
-          ${isBan ? `<span class="badge away">제한</span>` : ""}
+      <div class="user-main">
+        <span class="user-avatar ${user.status}">${initial}</span>
+        <div class="user-copy">
+          <div class="user-name-row">
+            <span class="user-name">${escapeHtml(user.nickname)}</span>
+            <strong class="user-score">${scoreForUser(user.id)}점</strong>
+          </div>
+          <div class="user-badges">
+            <span class="badge ${user.status}">${statusLabels[user.status]}</span>
+            ${isHost ? `<span class="badge host">출제자</span>` : ""}
+            ${user.role === "admin" ? `<span class="badge admin">관리자</span>` : ""}
+            ${isBan ? `<span class="badge away">제한</span>` : ""}
+          </div>
         </div>
       </div>
       <div class="user-controls">
