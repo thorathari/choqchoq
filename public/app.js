@@ -40,6 +40,14 @@ async function api(path, body = {}) {
   return payload;
 }
 
+function applyStatePayload(payload) {
+  if (!payload?.state) return false;
+  state = payload.state;
+  render();
+  if (state.me) connectEvents();
+  return true;
+}
+
 function isEditingForm() {
   const element = document.activeElement;
   if (!element || !app.contains(element)) return false;
@@ -76,7 +84,7 @@ function didCriticalGameSurfaceChange(previous, next) {
 
 function connectEvents() {
   if (statePollHandle) return;
-  statePollHandle = setInterval(loadState, 1500);
+  statePollHandle = setInterval(loadState, 800);
 }
 
 function disconnectEvents() {
@@ -597,21 +605,19 @@ app.addEventListener("click", async (event) => {
       render();
     }
     if (action === "transfer") {
-      if (confirm("출제권을 양도하면 3점 감점됩니다. 계속하시겠습니까?")) await api("/api/transfer");
+      if (confirm("출제권을 양도하면 3점 감점됩니다. 계속하시겠습니까?")) applyStatePayload(await api("/api/transfer"));
     }
     if (action === "reissue") {
-      await api("/api/reissue");
+      applyStatePayload(await api("/api/reissue"));
     }
     if (action === "reissue-request") {
-      await api("/api/reissue-request");
+      applyStatePayload(await api("/api/reissue-request"));
     }
     if (action === "self-status") {
-      await api("/api/status", { status: actionTarget.dataset.status });
-      await loadState({ forceRender: true });
+      applyStatePayload(await api("/api/status", { status: actionTarget.dataset.status }));
     }
     if (action === "admin-status") {
-      await api("/api/status", { userId: actionTarget.dataset.userId, status: actionTarget.dataset.status });
-      await loadState({ forceRender: true });
+      applyStatePayload(await api("/api/status", { userId: actionTarget.dataset.userId, status: actionTarget.dataset.status }));
     }
   } catch (error) {
     alert(error.message);
@@ -623,7 +629,7 @@ app.addEventListener("change", async (event) => {
   const action = target.dataset.action;
   try {
     if (action === "admin-role") {
-      await api("/api/admin/role", { userId: target.dataset.userId, role: target.value });
+      applyStatePayload(await api("/api/admin/role", { userId: target.dataset.userId, role: target.value }));
     }
   } catch (error) {
     alert(error.message);
@@ -647,27 +653,25 @@ app.addEventListener("submit", async (event) => {
       await loadState();
     }
     if (name === "question") {
-      await api("/api/question", formData(form));
-      await loadState({ forceRender: true });
+      applyStatePayload(await api("/api/question", formData(form)));
     }
     if (name === "hint") {
-      await api("/api/hint", formData(form));
+      const result = await api("/api/hint", formData(form));
       form.reset();
-      await loadState({ forceRender: true });
+      applyStatePayload(result);
     }
     if (name === "guess") {
       const result = await api("/api/guess", formData(form));
       if (!result.correct) form.reset();
-      await loadState({ forceRender: true });
+      applyStatePayload(result);
     }
     if (name === "chat") {
-      await api("/api/chat", formData(form));
+      const result = await api("/api/chat", formData(form));
       form.reset();
-      await loadState({ forceRender: true });
+      applyStatePayload(result);
     }
     if (name === "admin-host") {
-      await api("/api/admin/host", formData(form));
-      await loadState({ forceRender: true });
+      applyStatePayload(await api("/api/admin/host", formData(form)));
     }
   } catch (error) {
     alert(error.message);

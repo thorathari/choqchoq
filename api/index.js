@@ -120,6 +120,11 @@ async function login(req, res) {
   sendJson(res, 200, { ok: true, user: sanitizeUser(loggedInUser) });
 }
 
+async function sendState(res, userId, extra = {}) {
+  const user = await getUserById(userId);
+  sendJson(res, 200, { ok: true, ...extra, state: await publicState(user) });
+}
+
 module.exports = async function handler(req, res) {
   try {
     const path = routePath(req);
@@ -159,7 +164,7 @@ module.exports = async function handler(req, res) {
       if (targetId !== current.id && current.role !== "admin") throw new Error("다른 사용자의 상태는 관리자만 변경할 수 있습니다.");
       await updateUserStatus(targetId, status);
       await syncAfterStatusChange(targetId, status);
-      sendJson(res, 200, { ok: true });
+      await sendState(res, current.id);
       return;
     }
 
@@ -169,7 +174,7 @@ module.exports = async function handler(req, res) {
       if (!user) return;
       const body = await readJson(req);
       await createQuestion(user, String(body.category || "").trim(), String(body.answer || "").trim());
-      sendJson(res, 200, { ok: true });
+      await sendState(res, user.id);
       return;
     }
 
@@ -179,7 +184,7 @@ module.exports = async function handler(req, res) {
       if (!user) return;
       const body = await readJson(req);
       await addHint(user, String(body.text || "").trim());
-      sendJson(res, 200, { ok: true });
+      await sendState(res, user.id);
       return;
     }
 
@@ -189,7 +194,7 @@ module.exports = async function handler(req, res) {
       if (!user) return;
       const body = await readJson(req);
       await addChatMessage(user, body.text);
-      sendJson(res, 200, { ok: true });
+      await sendState(res, user.id);
       return;
     }
 
@@ -199,7 +204,7 @@ module.exports = async function handler(req, res) {
       if (!user) return;
       const body = await readJson(req);
       const correct = await submitGuess(user, String(body.answer || "").trim());
-      sendJson(res, 200, { ok: true, correct });
+      await sendState(res, user.id, { correct });
       return;
     }
 
@@ -208,7 +213,7 @@ module.exports = async function handler(req, res) {
       const user = await requireUser(req, res);
       if (!user) return;
       await transferHostWithPenalty(user);
-      sendJson(res, 200, { ok: true });
+      await sendState(res, user.id);
       return;
     }
 
@@ -217,7 +222,7 @@ module.exports = async function handler(req, res) {
       const user = await requireUser(req, res);
       if (!user) return;
       await reissueSameHost(user, "출제자가 문제를 리문했습니다.");
-      sendJson(res, 200, { ok: true });
+      await sendState(res, user.id);
       return;
     }
 
@@ -226,7 +231,7 @@ module.exports = async function handler(req, res) {
       const user = await requireUser(req, res);
       if (!user) return;
       await requestReissue(user);
-      sendJson(res, 200, { ok: true });
+      await sendState(res, user.id);
       return;
     }
 
@@ -236,7 +241,7 @@ module.exports = async function handler(req, res) {
       if (!admin) return;
       const body = await readJson(req);
       await adminSetHost(body.userId);
-      sendJson(res, 200, { ok: true });
+      await sendState(res, admin.id);
       return;
     }
 
@@ -249,7 +254,7 @@ module.exports = async function handler(req, res) {
       if (!["admin", "user"].includes(role)) throw new Error("알 수 없는 권한입니다.");
       if (body.userId === admin.id && role !== "admin") throw new Error("본인의 관리자 권한은 해제할 수 없습니다.");
       await updateUserRole(body.userId, role);
-      sendJson(res, 200, { ok: true });
+      await sendState(res, admin.id);
       return;
     }
 

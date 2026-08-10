@@ -309,8 +309,7 @@ function rankings(kind, users, events) {
 
 async function publicState(currentUser = null) {
   const { users, game } = await getFreshContext(currentUser);
-  const events = await getScoreEvents();
-  const chatMessages = await getChatMessages();
+  const [events, chatMessages] = await Promise.all([getScoreEvents(), getChatMessages()]);
   const host = users.find((user) => user.id === game.hostId) || null;
   const players = playingUsers(users);
   const isHost = currentUser && currentUser.id === game.hostId;
