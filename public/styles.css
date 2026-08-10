@@ -279,12 +279,6 @@ select:focus {
   padding: 10px 14px 14px;
 }
 
-.hero-panel .message {
-  margin-bottom: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
-}
-
 .auth-wrap {
   width: min(460px, calc(100vw - 32px));
   margin: 8vh auto 0;
@@ -417,8 +411,16 @@ select:focus {
   font-size: clamp(18px, 2.3vw, 26px);
   font-weight: 900;
   line-height: 1.15;
+  overflow: hidden;
   word-break: keep-all;
   letter-spacing: 0;
+}
+
+.chosung > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hero-panel .muted {
@@ -460,6 +462,27 @@ select:focus {
 
 .actions > button {
   flex: 0 1 auto;
+}
+
+.small-button {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.compact-host-tools {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.compact-host-tools .actions {
+  flex-wrap: nowrap;
+}
+
+.compact-host-tools .primary {
+  min-height: 38px;
+  white-space: nowrap;
 }
 
 .status-buttons {
@@ -761,16 +784,33 @@ select:focus {
   }
 
   .chosung {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+    flex-direction: row;
+    align-items: center;
+    gap: 7px;
     min-height: 56px;
-    padding: 10px 12px;
+    padding: 9px 10px;
     text-align: left;
+    font-size: 18px;
   }
 
   .actions > button {
     flex: 1 1 150px;
+  }
+
+  .actions > .small-button {
+    flex: 0 0 auto;
+  }
+
+  .compact-host-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-host-tools .actions > button {
+    flex: 0 0 auto;
+  }
+
+  .compact-host-tools .primary {
+    flex: 1 1 auto;
   }
 
   .status-buttons {

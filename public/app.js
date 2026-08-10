@@ -290,7 +290,6 @@ function gamePanel() {
         </div>
       </div>
       <div class="panel-body hero-body">
-        ${game.lastSystemMessage ? `<div class="message">${escapeHtml(game.lastSystemMessage)}</div>` : ""}
         ${game.phase === "waiting" ? waitingView() : ""}
         ${game.phase === "countdown" ? countdownView() : ""}
         ${game.phase === "hosting" ? hostingView(isHost) : ""}
@@ -352,7 +351,7 @@ function hostingView(isHost) {
       </div>
       <div class="actions">
         <button class="primary" type="submit">문제 내기</button>
-        <button class="warning" type="button" data-action="transfer">출제권 양도</button>
+        <button class="small-button warning" type="button" data-action="transfer">출제권 양도</button>
       </div>
     </form>
   `;
@@ -370,15 +369,15 @@ function activeView(isHost) {
 
 function hostTools() {
   return html`
-    <form class="form" data-form="hint">
+    <form class="form compact-host-tools" data-form="hint">
       <div class="form-row">
         <label>힌트</label>
         <input name="text" maxlength="80" placeholder="자유 힌트" required />
       </div>
       <div class="actions">
         <button class="primary" type="submit">힌트 주기</button>
-        <button type="button" data-action="reissue">리문</button>
-        <button class="warning" type="button" data-action="transfer">출제권 양도</button>
+        <button class="small-button" type="button" data-action="reissue">리문</button>
+        <button class="small-button warning" type="button" data-action="transfer">출제권 양도</button>
       </div>
     </form>
   `;
@@ -394,7 +393,7 @@ function guessTools() {
         ${escapeHtml(game.guessBlockedReason || "현재 상태에서는 정답을 제출할 수 없습니다.")}
       </div>
       <div class="actions">
-        <button type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>리문요청 ${game.reissueRequestCount}/3</button>
+        <button class="small-button" type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>리문요청 ${game.reissueRequestCount}/3</button>
       </div>
     `;
   }
@@ -402,7 +401,7 @@ function guessTools() {
   return html`
     <div class="message">채팅에 초성이 맞는 단어를 입력하면 답변으로 제출됩니다.</div>
     <div class="actions">
-      <button type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>리문요청 ${game.reissueRequestCount}/3</button>
+      <button class="small-button" type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>리문요청 ${game.reissueRequestCount}/3</button>
     </div>
   `;
 }
