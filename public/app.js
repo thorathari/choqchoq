@@ -83,7 +83,6 @@ function isEditingForm() {
   const element = document.activeElement;
   if (!element || !app.contains(element)) return false;
   if (!["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName)) return false;
-  if (element.closest(".chat-form")) return false;
   return !!element.closest("form");
 }
 
@@ -680,20 +679,6 @@ function removePendingChatMessage(id) {
   if (index >= 0) pendingChatMessages.splice(index, 1);
 }
 
-function trackVirtualKeyboardClose() {
-  if (!window.visualViewport) return;
-  let lastHeight = window.visualViewport.height;
-  window.visualViewport.addEventListener("resize", () => {
-    const nextHeight = window.visualViewport.height;
-    const chatInput = document.querySelector('.chat-form input[name="text"]');
-    if (chatInput && document.activeElement === chatInput && nextHeight - lastHeight > 80) {
-      suppressChatFocusUntil = Date.now() + 1600;
-      chatInput.blur();
-    }
-    lastHeight = nextHeight;
-  });
-}
-
 app.addEventListener("click", async (event) => {
   const modeButton = event.target.closest("[data-auth-mode]");
   if (modeButton) {
@@ -841,5 +826,4 @@ app.addEventListener("submit", async (event) => {
   }
 });
 
-trackVirtualKeyboardClose();
 loadState();

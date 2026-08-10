@@ -171,13 +171,27 @@ async function saveGame(game) {
   return dbGameToGame(rows[0]);
 }
 
+function rawScoreFor(events, userId, from = null, to = null) {
+  return events
+    .filter((event) => event.user_id === userId)
+    .filter((event) => (!from || new Date(event.created_at) >= from) && (!to || new Date(event.created_at) < to))
+    .reduce((sum, event) => sum + event.points, 0);
+}
+
 async function addScore(userId, type, points, roundId, meta = {}) {
+  let nextPoints = points;
+  if (points < 0) {
+    const currentScore = Math.max(0, rawScoreFor(await getScoreEvents(), userId));
+    nextPoints = Math.max(points, -currentScore);
+  }
+  if (nextPoints === 0) return;
+
   await supabaseRequest("choq_score_events", {
     method: "POST",
     body: {
       user_id: userId,
       type,
-      points,
+      points: nextPoints,
       round_id: roundId,
       meta
     }
@@ -300,10 +314,7 @@ async function getFreshContext(currentUser = null) {
 }
 
 function scoreFor(events, userId, from = null, to = null) {
-  return events
-    .filter((event) => event.user_id === userId)
-    .filter((event) => (!from || new Date(event.created_at) >= from) && (!to || new Date(event.created_at) < to))
-    .reduce((sum, event) => sum + event.points, 0);
+  return Math.max(0, rawScoreFor(events, userId, from, to));
 }
 
 function dateRange(kind) {

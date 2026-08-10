@@ -169,22 +169,33 @@ function getPublicUser(user) {
 }
 
 function addScore(userId, type, points, meta = {}) {
+  let nextPoints = points;
+  if (points < 0) {
+    const currentScore = Math.max(0, rawScoreFor(userId));
+    nextPoints = Math.max(points, -currentScore);
+  }
+  if (nextPoints === 0) return;
+
   store.scoreEvents.push({
     id: randomId("score"),
     userId,
     type,
-    points,
+    points: nextPoints,
     roundId: store.game.roundId,
     meta,
     createdAt: new Date().toISOString()
   });
 }
 
-function scoreFor(userId, from = null, to = null) {
+function rawScoreFor(userId, from = null, to = null) {
   return store.scoreEvents
     .filter((event) => event.userId === userId)
     .filter((event) => (!from || new Date(event.createdAt) >= from) && (!to || new Date(event.createdAt) < to))
     .reduce((sum, event) => sum + event.points, 0);
+}
+
+function scoreFor(userId, from = null, to = null) {
+  return Math.max(0, rawScoreFor(userId, from, to));
 }
 
 function dateRange(kind) {
