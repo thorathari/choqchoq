@@ -4,6 +4,7 @@ let authMode = "login";
 let rankMode = "day";
 let tickHandle = null;
 let theme = localStorage.getItem("choqchoq-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+let isSubmitting = false;
 
 const app = document.querySelector("#app");
 const APP_NAME = "촠촠";
@@ -39,11 +40,38 @@ async function api(path, body = {}) {
   return payload;
 }
 
-async function loadState() {
+function isEditingForm() {
+  const element = document.activeElement;
+  if (!element || !app.contains(element)) return false;
+  if (!["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName)) return false;
+  return !!element.closest("form");
+}
+
+async function loadState(options = {}) {
   const response = await fetch("/api/state", { cache: "no-store" });
-  state = await response.json();
+  const nextState = await response.json();
+  const shouldRender = options.forceRender || !isEditingForm() || didCriticalGameSurfaceChange(state, nextState);
+  state = nextState;
+  if (!shouldRender) {
+    updateTimers();
+    if (state.me) connectEvents();
+    return;
+  }
   render();
   if (state.me) connectEvents();
+}
+
+function didCriticalGameSurfaceChange(previous, next) {
+  if (!previous || !next) return true;
+  if (!previous.me || !next.me) return true;
+  return (
+    previous.me.id !== next.me.id ||
+    previous.game.phase !== next.game.phase ||
+    previous.game.roundId !== next.game.roundId ||
+    previous.game.hostId !== next.game.hostId ||
+    previous.me.status !== next.me.status ||
+    previous.me.role !== next.me.role
+  );
 }
 
 function connectEvents() {
@@ -552,6 +580,8 @@ app.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.target;
   const name = form.dataset.form;
+  if (isSubmitting) return;
+  isSubmitting = true;
   try {
     if (name === "login") {
       await api("/api/login", formData(form));
@@ -563,20 +593,26 @@ app.addEventListener("submit", async (event) => {
     }
     if (name === "question") {
       await api("/api/question", formData(form));
+      await loadState({ forceRender: true });
     }
     if (name === "hint") {
       await api("/api/hint", formData(form));
       form.reset();
+      await loadState({ forceRender: true });
     }
     if (name === "guess") {
       const result = await api("/api/guess", formData(form));
       if (!result.correct) form.reset();
+      await loadState({ forceRender: true });
     }
     if (name === "admin-host") {
       await api("/api/admin/host", formData(form));
+      await loadState({ forceRender: true });
     }
   } catch (error) {
     alert(error.message);
+  } finally {
+    isSubmitting = false;
   }
 });
 
