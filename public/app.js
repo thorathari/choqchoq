@@ -96,6 +96,7 @@ async function loadState(options = {}) {
   const nextState = await response.json();
   const shouldRender = options.forceRender || !isEditingForm() || didCriticalGameSurfaceChange(state, nextState);
   state = nextState;
+  if (!state.me) disconnectEvents();
   if (!shouldRender) {
     updateTimers();
     if (state.me) connectEvents();
@@ -107,6 +108,7 @@ async function loadState(options = {}) {
 
 function didCriticalGameSurfaceChange(previous, next) {
   if (!previous || !next) return true;
+  if (!previous.me && !next.me) return false;
   if (!previous.me || !next.me) return true;
   return (
     previous.me.id !== next.me.id ||
