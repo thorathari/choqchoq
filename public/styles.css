@@ -499,6 +499,11 @@ select:focus {
   justify-content: flex-end;
 }
 
+.reissue-count {
+  min-height: 30px;
+  font-size: 12px;
+}
+
 .status-buttons {
   display: inline-flex;
   gap: 4px;
@@ -728,6 +733,10 @@ select:focus {
   opacity: 1;
   pointer-events: auto;
   transform: translate(-50%, 0);
+}
+
+.scroll-bottom-button:hover:not(:disabled) {
+  transform: translate(-50%, -2px);
 }
 
 .timer {

@@ -373,6 +373,7 @@ function activeView(isHost) {
 }
 
 function hostTools() {
+  const game = state.game;
   return html`
     <form class="form compact-host-tools" data-form="hint">
       <div class="hint-submit-row">
@@ -383,6 +384,7 @@ function hostTools() {
         <button class="primary small-button" type="submit">힌트 주기</button>
       </div>
       <div class="actions host-secondary-actions">
+        <span class="badge reissue-count">리문요청 ${game.reissueRequestCount}/3</span>
         <button class="small-button" type="button" data-action="reissue">리문</button>
         <button class="small-button warning" type="button" data-action="transfer">출제권 양도</button>
       </div>
