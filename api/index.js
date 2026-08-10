@@ -1,0 +1,249 @@
+const {
+  clearSessionCookie,
+  getUserById,
+  getUserByUsername,
+  hashPassword,
+  normalizeNickname,
+  normalizeUsername,
+  readJson,
+  readSession,
+  requireAdmin,
+  requireMethod,
+  requireUser,
+  sanitizeUser,
+  sendJson,
+  setSessionCookie,
+  supabaseRequest,
+  usernameKey,
+  verifyPassword
+} = require("../server/db");
+const {
+  STATUSES,
+  addHint,
+  adminSetHost,
+  createQuestion,
+  publicState,
+  requestReissue,
+  reissueSameHost,
+  submitGuess,
+  syncAfterStatusChange,
+  transferHostWithPenalty,
+  updateUserRole,
+  updateUserStatus
+} = require("../server/game");
+
+function routePath(req) {
+  const url = new URL(req.url, `https://${req.headers.host || "localhost"}`);
+  const queryPath = req.query?.path || url.searchParams.get("path");
+  if (Array.isArray(queryPath)) return queryPath.join("/");
+  if (queryPath) return String(queryPath).replace(/^\/+/, "");
+  return url.pathname.replace(/^\/api\/?/, "").replace(/^index\.js\/?/, "");
+}
+
+async function register(req, res) {
+  if (!requireMethod(req, res, "POST")) return;
+
+  const body = await readJson(req);
+  const username = normalizeUsername(body.username);
+  const nickname = normalizeNickname(body.nickname);
+  const password = String(body.password || "");
+  const passwordConfirm = String(body.passwordConfirm || "");
+
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+    sendJson(res, 400, { error: "아이디는 영문, 숫자, 밑줄 3~20자로 입력해주세요." });
+    return;
+  }
+  if (nickname.length < 2 || nickname.length > 16) {
+    sendJson(res, 400, { error: "닉네임은 2~16자로 입력해주세요." });
+    return;
+  }
+  if (password.length < 4) {
+    sendJson(res, 400, { error: "비밀번호는 4자 이상 입력해주세요." });
+    return;
+  }
+  if (password !== passwordConfirm) {
+    sendJson(res, 400, { error: "비밀번호 확인이 일치하지 않습니다." });
+    return;
+  }
+  if (await getUserByUsername(username)) {
+    sendJson(res, 409, { error: "이미 사용 중인 아이디입니다." });
+    return;
+  }
+
+  const nicknameRows = await supabaseRequest(`choq_users?nickname=eq.${encodeURIComponent(nickname)}&select=id&limit=1`, { prefer: "" });
+  if (nicknameRows.length) {
+    sendJson(res, 409, { error: "이미 사용 중인 닉네임입니다." });
+    return;
+  }
+
+  const users = await supabaseRequest("choq_users?select=id", { prefer: "" });
+  const { salt, hash } = hashPassword(password);
+  const created = await supabaseRequest("choq_users", {
+    method: "POST",
+    body: {
+      username,
+      username_key: usernameKey(username),
+      nickname,
+      password_hash: hash,
+      password_salt: salt,
+      role: users.length === 0 ? "admin" : "user",
+      status: "watching",
+      last_login_at: new Date().toISOString()
+    }
+  });
+
+  const user = created[0];
+  setSessionCookie(res, user);
+  sendJson(res, 200, { ok: true, user: sanitizeUser(user) });
+}
+
+async function login(req, res) {
+  if (!requireMethod(req, res, "POST")) return;
+  const { username, password } = await readJson(req);
+  const user = await getUserByUsername(username);
+
+  if (!user || !verifyPassword(password, user.password_salt, user.password_hash)) {
+    sendJson(res, 401, { error: "아이디 또는 비밀번호가 올바르지 않습니다." });
+    return;
+  }
+
+  const updated = await supabaseRequest(`choq_users?id=eq.${encodeURIComponent(user.id)}`, {
+    method: "PATCH",
+    body: {
+      last_login_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+  });
+  const loggedInUser = updated[0] || user;
+  setSessionCookie(res, loggedInUser);
+  sendJson(res, 200, { ok: true, user: sanitizeUser(loggedInUser) });
+}
+
+module.exports = async function handler(req, res) {
+  try {
+    const path = routePath(req);
+
+    if (req.method === "GET" && path === "state") {
+      const session = readSession(req);
+      const user = session?.id ? await getUserById(session.id) : null;
+      sendJson(res, 200, await publicState(user));
+      return;
+    }
+
+    if (path === "register") {
+      await register(req, res);
+      return;
+    }
+
+    if (path === "login") {
+      await login(req, res);
+      return;
+    }
+
+    if (path === "logout") {
+      if (!requireMethod(req, res, "POST")) return;
+      clearSessionCookie(res);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (path === "status") {
+      if (!requireMethod(req, res, "POST")) return;
+      const current = await requireUser(req, res);
+      if (!current) return;
+      const body = await readJson(req);
+      const targetId = body.userId || current.id;
+      const status = String(body.status || "");
+      if (!STATUSES.has(status)) throw new Error("알 수 없는 상태입니다.");
+      if (targetId !== current.id && current.role !== "admin") throw new Error("다른 사용자의 상태는 관리자만 변경할 수 있습니다.");
+      await updateUserStatus(targetId, status);
+      await syncAfterStatusChange(targetId, status);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (path === "question") {
+      if (!requireMethod(req, res, "POST")) return;
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readJson(req);
+      await createQuestion(user, String(body.category || "").trim(), String(body.answer || "").trim());
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (path === "hint") {
+      if (!requireMethod(req, res, "POST")) return;
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readJson(req);
+      await addHint(user, String(body.text || "").trim());
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (path === "guess") {
+      if (!requireMethod(req, res, "POST")) return;
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readJson(req);
+      const correct = await submitGuess(user, String(body.answer || "").trim());
+      sendJson(res, 200, { ok: true, correct });
+      return;
+    }
+
+    if (path === "transfer") {
+      if (!requireMethod(req, res, "POST")) return;
+      const user = await requireUser(req, res);
+      if (!user) return;
+      await transferHostWithPenalty(user);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (path === "reissue") {
+      if (!requireMethod(req, res, "POST")) return;
+      const user = await requireUser(req, res);
+      if (!user) return;
+      await reissueSameHost(user, "출제자가 문제를 리문했습니다.");
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (path === "reissue-request") {
+      if (!requireMethod(req, res, "POST")) return;
+      const user = await requireUser(req, res);
+      if (!user) return;
+      await requestReissue(user);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (path === "admin/host") {
+      if (!requireMethod(req, res, "POST")) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readJson(req);
+      await adminSetHost(body.userId);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (path === "admin/role") {
+      if (!requireMethod(req, res, "POST")) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readJson(req);
+      const role = String(body.role || "");
+      if (!["admin", "user"].includes(role)) throw new Error("알 수 없는 권한입니다.");
+      if (body.userId === admin.id && role !== "admin") throw new Error("본인의 관리자 권한은 해제할 수 없습니다.");
+      await updateUserRole(body.userId, role);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    sendJson(res, 404, { error: "Not found" });
+  } catch (error) {
+    sendJson(res, 400, { error: error.message || "요청을 처리하지 못했습니다." });
+  }
+};

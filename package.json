@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node local-server.js",
     "dev": "node local-server.js",
-    "check": "node --check server/db.js && node --check server/game.js && node --check public/app.js && node --check api/state.js && node --check api/register.js && node --check api/login.js && node --check api/logout.js && node --check api/status.js && node --check api/question.js && node --check api/hint.js && node --check api/guess.js && node --check api/transfer.js && node --check api/reissue.js && node --check api/reissue-request.js && node --check api/admin/host.js && node --check api/admin/role.js"
+    "check": "node --check server/db.js && node --check server/game.js && node --check public/app.js && node --check api/index.js"
   },
   "engines": {
     "node": ">=18"
