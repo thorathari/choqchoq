@@ -12,6 +12,7 @@ let isRendering = false;
 let chatDraftValue = "";
 let chatDraftSelectionStart = null;
 let chatDraftSelectionEnd = null;
+let chatDraftFocused = false;
 const pendingChatMessages = [];
 
 const app = document.querySelector("#app");
@@ -304,7 +305,7 @@ function waitingView() {
   const count = state.game.playerCount;
   const needed = Math.max(0, 2 - count);
   const isPlaying = state.me.status === "playing";
-  const title = needed > 0 ? `참여 상태 ${count}/2명` : "시작 준비 중";
+  const title = needed > 0 ? "참여 대기중" : "시작 준비 중";
   const guide = isPlaying
     ? needed > 0
       ? `게임 시작까지 ${needed}명이 더 필요합니다.`
@@ -591,9 +592,10 @@ function statusOptions(selected) {
 }
 
 function statusButtons(selected, action, userId = "") {
+  const entries = Object.entries(statusLabels).filter(([value]) => value !== "away");
   return html`
     <div class="status-buttons" role="group" aria-label="상태 변경">
-      ${Object.entries(statusLabels).map(([value, label]) => `
+      ${entries.map(([value, label]) => `
         <button
           type="button"
           class="status-button ${selected === value ? "active" : ""}"
@@ -621,17 +623,21 @@ function formData(form) {
 function focusChatInput() {
   if (Date.now() < suppressChatFocusUntil) return;
   const input = document.querySelector('.chat-form input[name="text"]');
-  if (input) input.focus({ preventScroll: true });
+  if (input) {
+    chatDraftFocused = true;
+    input.focus({ preventScroll: true });
+  }
 }
 
 function getChatDraft() {
   const input = document.querySelector('.chat-form input[name="text"]');
   if (input) syncChatDraftFromInput(input);
-  if (!chatDraftValue) return null;
+  if (!chatDraftValue && !chatDraftFocused) return null;
   return {
     value: chatDraftValue,
     selectionStart: chatDraftSelectionStart,
-    selectionEnd: chatDraftSelectionEnd
+    selectionEnd: chatDraftSelectionEnd,
+    shouldFocus: chatDraftFocused
   };
 }
 
@@ -646,7 +652,7 @@ function restoreChatDraft(draft) {
   const input = document.querySelector('.chat-form input[name="text"]');
   if (!input) return;
   input.value = draft.value;
-  if (Date.now() >= suppressChatFocusUntil) input.focus({ preventScroll: true });
+  if (draft.shouldFocus && Date.now() >= suppressChatFocusUntil) input.focus({ preventScroll: true });
   if (document.activeElement === input && draft.selectionStart !== null && draft.selectionEnd !== null) {
     input.setSelectionRange(draft.selectionStart, draft.selectionEnd);
   }
@@ -753,11 +759,18 @@ app.addEventListener("change", async (event) => {
 });
 
 app.addEventListener("focusin", (event) => {
-  if (event.target.closest?.(".chat-form")) suppressChatFocusUntil = 0;
+  if (event.target.closest?.(".chat-form")) {
+    chatDraftFocused = true;
+    suppressChatFocusUntil = 0;
+    syncChatDraftFromInput(event.target);
+  }
 });
 
 app.addEventListener("focusout", (event) => {
-  if (event.target.closest?.(".chat-form")) syncChatDraftFromInput(event.target);
+  if (event.target.closest?.(".chat-form")) {
+    chatDraftFocused = false;
+    syncChatDraftFromInput(event.target);
+  }
   if (!isRendering && event.target.closest?.(".chat-form")) {
     suppressChatFocusUntil = Math.max(suppressChatFocusUntil, Date.now() + 800);
   }
@@ -779,6 +792,7 @@ app.addEventListener("submit", async (event) => {
     chatDraftValue = "";
     chatDraftSelectionStart = null;
     chatDraftSelectionEnd = null;
+    chatDraftFocused = true;
     const pendingId = addPendingChatMessage(text);
     try {
       const result = await api("/api/chat", { text });

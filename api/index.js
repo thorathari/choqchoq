@@ -112,11 +112,13 @@ async function login(req, res) {
   const updated = await supabaseRequest(`choq_users?id=eq.${encodeURIComponent(user.id)}`, {
     method: "PATCH",
     body: {
+      status: "watching",
       last_login_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
   });
   const loggedInUser = updated[0] || user;
+  await syncAfterStatusChange(loggedInUser.id, "watching");
   setSessionCookie(res, loggedInUser);
   sendJson(res, 200, { ok: true, user: sanitizeUser(loggedInUser) });
 }
@@ -149,6 +151,11 @@ module.exports = async function handler(req, res) {
 
     if (path === "logout") {
       if (!requireMethod(req, res, "POST")) return;
+      const session = readSession(req);
+      if (session?.id) {
+        await updateUserStatus(session.id, "away");
+        await syncAfterStatusChange(session.id, "away");
+      }
       clearSessionCookie(res);
       sendJson(res, 200, { ok: true });
       return;
@@ -162,6 +169,7 @@ module.exports = async function handler(req, res) {
       const targetId = body.userId || current.id;
       const status = String(body.status || "");
       if (!STATUSES.has(status)) throw new Error("알 수 없는 상태입니다.");
+      if (status === "away") throw new Error("부재중은 로그아웃 상태에서만 적용됩니다.");
       if (targetId !== current.id && current.role !== "admin") throw new Error("다른 사용자의 상태는 관리자만 변경할 수 있습니다.");
       await updateUserStatus(targetId, status);
       await syncAfterStatusChange(targetId, status);

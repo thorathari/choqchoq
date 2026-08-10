@@ -305,6 +305,20 @@ function maybeStartGame() {
   }
 }
 
+function syncAfterStatusChangeLocal(target, status) {
+  if (store.game.phase !== "waiting" && playingUsers().length < 2) {
+    returnToWaiting("참여자가 2명 미만으로 줄어 대기 상태로 돌아갑니다.");
+  } else if (target.id === store.game.hostId && status !== "playing") {
+    const nextHost = chooseRandom(nextHostCandidates(target.id));
+    if (nextHost) setHost(nextHost.id, "출제자가 참여 상태를 벗어나 출제권이 이동했습니다.");
+    else returnToWaiting("출제자가 참여 상태를 벗어나 게임이 대기 상태가 되었습니다.");
+  } else {
+    maybeStartGame();
+    saveStore();
+    broadcastState();
+  }
+}
+
 function handleCountdownComplete() {
   const players = playingUsers();
   if (players.length < 2) {
@@ -568,6 +582,8 @@ async function handleApi(req, res) {
       const password = String(body.password || "");
       const user = store.users.find((item) => item.username.toLowerCase() === username.toLowerCase());
       if (!user || !verifyPassword(password, user)) throw new Error("아이디 또는 비밀번호가 올바르지 않습니다.");
+      user.status = "watching";
+      syncAfterStatusChangeLocal(user, "watching");
       const sid = randomId("sid");
       sessions.set(sid, user.id);
       sendJson(res, 200, { ok: true, user: getPublicUser(user) }, [`sid=${encodeURIComponent(sid)}; HttpOnly; Path=/; SameSite=Lax`]);
@@ -576,7 +592,12 @@ async function handleApi(req, res) {
 
     if (req.method === "POST" && url.pathname === "/api/logout") {
       const sid = parseCookies(req).sid;
+      const user = getSessionUser(req);
       if (sid) sessions.delete(sid);
+      if (user) {
+        user.status = "away";
+        syncAfterStatusChangeLocal(user, "away");
+      }
       sendJson(res, 200, { ok: true }, ["sid=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0"]);
       return;
     }
@@ -588,21 +609,12 @@ async function handleApi(req, res) {
       const targetId = body.userId || current.id;
       const status = String(body.status || "");
       if (!STATUSES.has(status)) throw new Error("알 수 없는 상태입니다.");
+      if (status === "away") throw new Error("부재중은 로그아웃 상태에서만 적용됩니다.");
       if (targetId !== current.id && current.role !== "admin") throw new Error("다른 사용자의 상태는 관리자만 변경할 수 있습니다.");
       const target = store.users.find((user) => user.id === targetId);
       if (!target) throw new Error("사용자를 찾을 수 없습니다.");
       target.status = status;
-      if (store.game.phase !== "waiting" && playingUsers().length < 2) {
-        returnToWaiting("참여자가 2명 미만으로 줄어 대기 상태로 돌아갑니다.");
-      } else if (target.id === store.game.hostId && status !== "playing") {
-        const nextHost = chooseRandom(nextHostCandidates(target.id));
-        if (nextHost) setHost(nextHost.id, "출제자가 참여 상태를 벗어나 출제권이 이동했습니다.");
-        else returnToWaiting("출제자가 참여 상태를 벗어나 게임이 대기 상태가 되었습니다.");
-      } else {
-        maybeStartGame();
-        saveStore();
-        broadcastState();
-      }
+      syncAfterStatusChangeLocal(target, status);
       sendJson(res, 200, { ok: true });
       return;
     }
