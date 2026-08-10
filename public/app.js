@@ -6,6 +6,8 @@ let tickHandle = null;
 let theme = localStorage.getItem("choqchoq-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 let isSubmitting = false;
 let forceNextChatScroll = false;
+let pendingChatSerial = 0;
+const pendingChatMessages = [];
 
 const app = document.querySelector("#app");
 const APP_NAME = "촠촠";
@@ -41,16 +43,24 @@ async function api(path, body = {}) {
   return payload;
 }
 
-function isChatNearBottom() {
+function getChatScrollSnapshot() {
   const list = document.querySelector(".chat-list");
-  if (!list) return true;
-  return list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+  if (!list) return null;
+  const distanceFromBottom = Math.max(0, list.scrollHeight - list.scrollTop - list.clientHeight);
+  return {
+    isNearBottom: distanceFromBottom < 80,
+    distanceFromBottom
+  };
 }
 
-function restoreChatScroll(shouldStick) {
+function restoreChatScroll(snapshot, forceBottom = false) {
   const list = document.querySelector(".chat-list");
-  if (!list || !shouldStick) return;
-  list.scrollTop = list.scrollHeight;
+  if (!list) return;
+  if (forceBottom || !snapshot || snapshot.isNearBottom) {
+    list.scrollTop = list.scrollHeight;
+    return;
+  }
+  list.scrollTop = Math.max(0, list.scrollHeight - list.clientHeight - snapshot.distanceFromBottom);
 }
 
 function applyStatePayload(payload, options = {}) {
@@ -58,6 +68,7 @@ function applyStatePayload(payload, options = {}) {
   forceNextChatScroll = !!options.forceChatBottom;
   state = payload.state;
   render();
+  if (options.focusChatInput) requestAnimationFrame(focusChatInput);
   if (state.me) connectEvents();
   return true;
 }
@@ -66,6 +77,7 @@ function isEditingForm() {
   const element = document.activeElement;
   if (!element || !app.contains(element)) return false;
   if (!["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName)) return false;
+  if (element.closest(".chat-form")) return false;
   return !!element.closest("form");
 }
 
@@ -134,7 +146,9 @@ function currentDeadline() {
 }
 
 function render() {
-  const shouldStickChat = forceNextChatScroll || isChatNearBottom();
+  const chatSnapshot = getChatScrollSnapshot();
+  const chatDraft = getChatDraft();
+  const shouldForceChatBottom = forceNextChatScroll;
   forceNextChatScroll = false;
   clearInterval(tickHandle);
   if (!state?.me) {
@@ -142,7 +156,10 @@ function render() {
     return;
   }
   renderGame();
-  requestAnimationFrame(() => restoreChatScroll(shouldStickChat));
+  requestAnimationFrame(() => {
+    restoreChatScroll(chatSnapshot, shouldForceChatBottom);
+    restoreChatDraft(chatDraft);
+  });
   if (currentDeadline()) {
     tickHandle = setInterval(updateTimers, 500);
     updateTimers();
@@ -393,7 +410,7 @@ function activityPanel() {
 }
 
 function chatPanel() {
-  const messages = state.chatMessages || [];
+  const messages = [...(state.chatMessages || []), ...pendingChatMessages];
   const placeholder = state.game.canGuess ? "대화 또는 정답 입력" : "메시지 입력";
   return html`
     <section class="panel chat-panel">
@@ -417,10 +434,11 @@ function chatPanel() {
 function chatMessage(message) {
   const mine = state.me && message.userId === state.me.id;
   return html`
-    <div class="chat-message ${mine ? "mine" : ""}">
+    <div class="chat-message ${mine ? "mine" : ""} ${message.pending ? "pending" : ""}">
       <div class="chat-meta">
         <strong>${escapeHtml(message.nickname)}</strong>
         ${message.role === "admin" ? `<span class="badge admin">관리자</span>` : ""}
+        ${message.pending ? `<span class="sending-dot">전송 중</span>` : ""}
       </div>
       <div class="chat-bubble">${escapeHtml(message.text)}</div>
     </div>
@@ -578,6 +596,53 @@ function formData(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
 
+function focusChatInput() {
+  const input = document.querySelector('.chat-form input[name="text"]');
+  if (input) input.focus({ preventScroll: true });
+}
+
+function getChatDraft() {
+  const input = document.querySelector('.chat-form input[name="text"]');
+  if (!input || document.activeElement !== input) return null;
+  return {
+    value: input.value,
+    selectionStart: input.selectionStart,
+    selectionEnd: input.selectionEnd
+  };
+}
+
+function restoreChatDraft(draft) {
+  if (!draft) return;
+  const input = document.querySelector('.chat-form input[name="text"]');
+  if (!input) return;
+  input.value = draft.value;
+  input.focus({ preventScroll: true });
+  if (draft.selectionStart !== null && draft.selectionEnd !== null) {
+    input.setSelectionRange(draft.selectionStart, draft.selectionEnd);
+  }
+}
+
+function addPendingChatMessage(text) {
+  const message = {
+    id: `pending-${Date.now()}-${++pendingChatSerial}`,
+    userId: state.me.id,
+    nickname: state.me.nickname,
+    role: state.me.role,
+    text,
+    pending: true
+  };
+  pendingChatMessages.push(message);
+  forceNextChatScroll = true;
+  render();
+  requestAnimationFrame(focusChatInput);
+  return message.id;
+}
+
+function removePendingChatMessage(id) {
+  const index = pendingChatMessages.findIndex((message) => message.id === id);
+  if (index >= 0) pendingChatMessages.splice(index, 1);
+}
+
 app.addEventListener("click", async (event) => {
   const modeButton = event.target.closest("[data-auth-mode]");
   if (modeButton) {
@@ -599,6 +664,7 @@ app.addEventListener("click", async (event) => {
     if (action === "logout") {
       await api("/api/logout");
       disconnectEvents();
+      pendingChatMessages.length = 0;
       state = null;
       await loadState();
     }
@@ -645,6 +711,25 @@ app.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.target;
   const name = form.dataset.form;
+  if (name === "chat") {
+    const data = formData(form);
+    const text = String(data.text || "").trim();
+    if (!text) return;
+    form.reset();
+    const pendingId = addPendingChatMessage(text);
+    try {
+      const result = await api("/api/chat", { text });
+      removePendingChatMessage(pendingId);
+      applyStatePayload(result, { forceChatBottom: true, focusChatInput: true });
+    } catch (error) {
+      removePendingChatMessage(pendingId);
+      render();
+      requestAnimationFrame(focusChatInput);
+      alert(error.message);
+    }
+    return;
+  }
+
   if (isSubmitting) return;
   isSubmitting = true;
   try {
@@ -668,11 +753,6 @@ app.addEventListener("submit", async (event) => {
       const result = await api("/api/guess", formData(form));
       if (!result.correct) form.reset();
       applyStatePayload(result);
-    }
-    if (name === "chat") {
-      const result = await api("/api/chat", formData(form));
-      form.reset();
-      applyStatePayload(result, { forceChatBottom: true });
     }
     if (name === "admin-host") {
       applyStatePayload(await api("/api/admin/host", formData(form)));

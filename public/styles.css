@@ -193,7 +193,7 @@ select:focus {
 .main-column,
 .side-column {
   display: grid;
-  gap: 18px;
+  gap: 12px;
   align-content: start;
 }
 
@@ -208,6 +208,15 @@ select:focus {
 .hero-panel {
   overflow: hidden;
   border-color: rgba(37, 99, 235, 0.18);
+  box-shadow: var(--soft-shadow);
+}
+
+.hero-panel .panel-header {
+  padding: 12px 14px 0;
+}
+
+.hero-panel .panel-header h2 {
+  font-size: 14px;
 }
 
 .panel-header {
@@ -230,7 +239,13 @@ select:focus {
 }
 
 .hero-body {
-  padding-top: 14px;
+  padding: 10px 14px 14px;
+}
+
+.hero-panel .message {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
 }
 
 .auth-wrap {
@@ -344,15 +359,16 @@ select:focus {
 
 .problem {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .chosung {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 18px;
-  min-height: 132px;
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 52px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background:
@@ -360,11 +376,16 @@ select:focus {
     linear-gradient(315deg, rgba(249, 115, 22, 0.08), transparent 52%),
     var(--panel-2);
   text-align: center;
-  font-size: clamp(26px, 4.2vw, 48px);
+  font-size: clamp(18px, 2.3vw, 26px);
   font-weight: 900;
   line-height: 1.15;
   word-break: keep-all;
   letter-spacing: 0;
+}
+
+.hero-panel .muted {
+  margin: 0;
+  font-size: 13px;
 }
 
 .countdown-number {
@@ -374,12 +395,12 @@ select:focus {
 .category {
   display: inline-flex;
   align-items: center;
-  min-height: 34px;
-  padding: 0 12px;
+  min-height: 28px;
+  padding: 0 10px;
   border-radius: 999px;
   background: var(--accent);
   color: white;
-  font-size: clamp(14px, 1.7vw, 18px);
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -478,21 +499,25 @@ select:focus {
 }
 
 .chat-panel {
-  min-height: 460px;
+  min-height: 620px;
 }
 
 .chat-body {
   display: grid;
-  grid-template-rows: minmax(220px, 1fr) auto;
+  grid-template-rows: minmax(360px, 1fr) auto;
   gap: 12px;
+  height: clamp(480px, 66vh, 760px);
+  min-height: 0;
 }
 
 .chat-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 480px;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 4px;
 }
 
@@ -530,6 +555,15 @@ select:focus {
   border-radius: 16px 16px 4px 16px;
   background: var(--accent);
   color: white;
+}
+
+.chat-message.pending .chat-bubble {
+  opacity: 0.68;
+}
+
+.sending-dot {
+  color: var(--muted);
+  font-size: 11px;
 }
 
 :root[data-theme="dark"] .chat-message.mine .chat-bubble {
@@ -594,9 +628,11 @@ select:focus {
 
   .chosung {
     flex-direction: column;
-    gap: 12px;
-    min-height: 118px;
-    padding: 18px 14px;
+    align-items: flex-start;
+    gap: 8px;
+    min-height: 56px;
+    padding: 10px 12px;
+    text-align: left;
   }
 
   .actions > button {
@@ -613,6 +649,15 @@ select:focus {
 
   .chat-form {
     grid-template-columns: 1fr;
+  }
+
+  .chat-panel {
+    min-height: 520px;
+  }
+
+  .chat-body {
+    height: clamp(420px, 62vh, 620px);
+    grid-template-rows: minmax(300px, 1fr) auto;
   }
 
   .chat-bubble {
