@@ -703,12 +703,56 @@ select:focus {
   }
 
   .topbar {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
+    gap: 10px;
+  }
+
+  .brand {
+    min-width: 0;
+    gap: 9px;
+  }
+
+  .app-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    font-size: 20px;
+  }
+
+  .brand h1 {
+    font-size: 24px;
+  }
+
+  .brand span {
+    display: none;
   }
 
   .userbar {
-    justify-content: flex-start;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .theme-toggle {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    min-height: 34px;
+  }
+
+  .top-nickname {
+    max-width: 72px;
+    min-height: 32px;
+    padding: 0 7px;
+    font-size: 12px;
+  }
+
+  .logout-button {
+    min-height: 34px;
+    padding: 0 7px;
+    font-size: 11px;
   }
 
   .grid-2,

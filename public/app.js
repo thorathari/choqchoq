@@ -9,6 +9,9 @@ let forceNextChatScroll = false;
 let pendingChatSerial = 0;
 let suppressChatFocusUntil = 0;
 let isRendering = false;
+let chatDraftValue = "";
+let chatDraftSelectionStart = null;
+let chatDraftSelectionEnd = null;
 const pendingChatMessages = [];
 
 const app = document.querySelector("#app");
@@ -419,7 +422,13 @@ function activityPanel() {
 }
 
 function chatPanel() {
-  const messages = [...(state.chatMessages || []), ...pendingChatMessages];
+  const serverMessages = state.chatMessages || [];
+  const visiblePendingMessages = pendingChatMessages.filter((pending) => !serverMessages.some((message) => (
+    message.userId === pending.userId &&
+    message.text === pending.text &&
+    Math.abs(new Date(message.createdAt || 0).getTime() - pending.createdAtMs) < 15000
+  )));
+  const messages = [...serverMessages, ...visiblePendingMessages];
   const placeholder = state.game.canGuess ? "대화 또는 정답 입력" : "메시지 입력";
   return html`
     <section class="panel chat-panel">
@@ -617,12 +626,19 @@ function focusChatInput() {
 
 function getChatDraft() {
   const input = document.querySelector('.chat-form input[name="text"]');
-  if (!input || document.activeElement !== input) return null;
+  if (input) syncChatDraftFromInput(input);
+  if (!chatDraftValue) return null;
   return {
-    value: input.value,
-    selectionStart: input.selectionStart,
-    selectionEnd: input.selectionEnd
+    value: chatDraftValue,
+    selectionStart: chatDraftSelectionStart,
+    selectionEnd: chatDraftSelectionEnd
   };
+}
+
+function syncChatDraftFromInput(input) {
+  chatDraftValue = input.value;
+  chatDraftSelectionStart = input.selectionStart;
+  chatDraftSelectionEnd = input.selectionEnd;
 }
 
 function restoreChatDraft(draft) {
@@ -643,6 +659,7 @@ function addPendingChatMessage(text) {
     nickname: state.me.nickname,
     role: state.me.role,
     text,
+    createdAtMs: Date.now(),
     pending: true
   };
   pendingChatMessages.push(message);
@@ -740,9 +757,14 @@ app.addEventListener("focusin", (event) => {
 });
 
 app.addEventListener("focusout", (event) => {
+  if (event.target.closest?.(".chat-form")) syncChatDraftFromInput(event.target);
   if (!isRendering && event.target.closest?.(".chat-form")) {
     suppressChatFocusUntil = Math.max(suppressChatFocusUntil, Date.now() + 800);
   }
+});
+
+app.addEventListener("input", (event) => {
+  if (event.target.closest?.(".chat-form")) syncChatDraftFromInput(event.target);
 });
 
 app.addEventListener("submit", async (event) => {
@@ -754,6 +776,9 @@ app.addEventListener("submit", async (event) => {
     const text = String(data.text || "").trim();
     if (!text) return;
     form.reset();
+    chatDraftValue = "";
+    chatDraftSelectionStart = null;
+    chatDraftSelectionEnd = null;
     const pendingId = addPendingChatMessage(text);
     try {
       const result = await api("/api/chat", { text });

@@ -224,6 +224,11 @@ function nextHostCandidates(users, excludeUserId = null) {
 
 function maybeStartGame(game, users) {
   const players = playingUsers(users);
+  if (game.phase !== "waiting" && players.length < 2) {
+    returnToWaiting(game, "참여자가 2명 미만으로 줄어 대기 상태로 돌아갑니다.");
+    return true;
+  }
+
   if (game.phase === "waiting" && players.length >= 2) {
     game.phase = "countdown";
     game.countdownEndsAt = Date.now() + 3000;
@@ -430,8 +435,11 @@ async function updateUserRole(targetId, role) {
 async function syncAfterStatusChange(targetId, status) {
   const users = await getUsers();
   let game = await getGame();
+  const players = playingUsers(users);
 
-  if (game.hostId === targetId && status !== "playing") {
+  if (game.phase !== "waiting" && players.length < 2) {
+    returnToWaiting(game, "참여자가 2명 미만으로 줄어 대기 상태로 돌아갑니다.");
+  } else if (game.hostId === targetId && status !== "playing") {
     const nextHost = chooseRandom(nextHostCandidates(users, targetId));
     if (nextHost) setHost(game, nextHost.id, "출제자가 참여 상태를 벗어나 출제권이 이동했습니다.");
     else returnToWaiting(game, "출제자가 참여 상태를 벗어나 게임이 대기 상태가 되었습니다.");

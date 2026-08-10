@@ -285,6 +285,11 @@ function returnToWaiting(message) {
 
 function maybeStartGame() {
   const players = playingUsers();
+  if (store.game.phase !== "waiting" && players.length < 2) {
+    returnToWaiting("참여자가 2명 미만으로 줄어 대기 상태로 돌아갑니다.");
+    return;
+  }
+
   if (store.game.phase === "waiting" && players.length >= 2) {
     store.game.phase = "countdown";
     store.game.countdownEndsAt = Date.now() + 3000;
@@ -587,7 +592,9 @@ async function handleApi(req, res) {
       const target = store.users.find((user) => user.id === targetId);
       if (!target) throw new Error("사용자를 찾을 수 없습니다.");
       target.status = status;
-      if (target.id === store.game.hostId && status !== "playing") {
+      if (store.game.phase !== "waiting" && playingUsers().length < 2) {
+        returnToWaiting("참여자가 2명 미만으로 줄어 대기 상태로 돌아갑니다.");
+      } else if (target.id === store.game.hostId && status !== "playing") {
         const nextHost = chooseRandom(nextHostCandidates(target.id));
         if (nextHost) setHost(nextHost.id, "출제자가 참여 상태를 벗어나 출제권이 이동했습니다.");
         else returnToWaiting("출제자가 참여 상태를 벗어나 게임이 대기 상태가 되었습니다.");
