@@ -471,18 +471,23 @@ select:focus {
 }
 
 .compact-host-tools {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.hint-submit-row {
+  display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 8px;
 }
 
-.compact-host-tools .actions {
-  flex-wrap: nowrap;
+.compact-host-tools .small-button {
+  white-space: nowrap;
 }
 
-.compact-host-tools .primary {
-  min-height: 38px;
-  white-space: nowrap;
+.host-secondary-actions {
+  justify-content: flex-end;
 }
 
 .status-buttons {
@@ -805,12 +810,17 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
-  .compact-host-tools .actions > button {
-    flex: 0 0 auto;
+  .hint-submit-row {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .compact-host-tools .primary {
-    flex: 1 1 auto;
+  .host-secondary-actions {
+    justify-content: flex-end;
+  }
+
+  .host-secondary-actions > .small-button,
+  .hint-submit-row > .small-button {
+    flex: 0 0 auto;
   }
 
   .status-buttons {

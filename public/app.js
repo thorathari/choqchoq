@@ -370,12 +370,14 @@ function activeView(isHost) {
 function hostTools() {
   return html`
     <form class="form compact-host-tools" data-form="hint">
-      <div class="form-row">
-        <label>힌트</label>
-        <input name="text" maxlength="80" placeholder="자유 힌트" required />
+      <div class="hint-submit-row">
+        <div class="form-row">
+          <label>힌트</label>
+          <input name="text" maxlength="80" placeholder="자유 힌트" required />
+        </div>
+        <button class="primary small-button" type="submit">힌트 주기</button>
       </div>
-      <div class="actions">
-        <button class="primary" type="submit">힌트 주기</button>
+      <div class="actions host-secondary-actions">
         <button class="small-button" type="button" data-action="reissue">리문</button>
         <button class="small-button warning" type="button" data-action="transfer">출제권 양도</button>
       </div>
