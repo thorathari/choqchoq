@@ -352,11 +352,11 @@ function hostingView(isHost) {
         </div>
         <div class="form-row">
           <label>정답</label>
-          <input name="answer" placeholder="지우개" maxlength="30" required />
+          <div class="answer-submit-row">
+            <input name="answer" placeholder="지우개" maxlength="30" required />
+            <button class="primary" type="submit">문제 내기</button>
+          </div>
         </div>
-      </div>
-      <div class="question-primary-row">
-        <button class="primary" type="submit">문제 내기</button>
       </div>
       <div class="round-transfer-row">
         <button class="small-button warning" type="button" data-action="transfer">출제권 양도</button>
@@ -498,24 +498,15 @@ function usersPanel() {
   `;
 }
 
-function scoreForUser(userId) {
-  return state.scores.find((row) => row.userId === userId)?.score ?? 0;
-}
-
 function userItem(user) {
   const isHost = user.id === state.game.hostId;
   const isBan = user.id === state.game.answerBanUserId;
   const canAdmin = state.me.role === "admin";
-  const initial = escapeHtml(String(user.nickname || "?").slice(0, 1));
   return html`
     <li class="user-item">
       <div class="user-main">
-        <span class="user-avatar ${user.status}">${initial}</span>
-        <div class="user-copy">
-          <div class="user-name-row">
-            <span class="user-name">${escapeHtml(user.nickname)}</span>
-            <strong class="user-score">${scoreForUser(user.id)}점</strong>
-          </div>
+        <div class="user-line">
+          <span class="user-name">${escapeHtml(user.nickname)}</span>
           <div class="user-badges">
             <span class="badge ${user.status}">${statusLabels[user.status]}</span>
             ${isHost ? `<span class="badge host">출제자</span>` : ""}
@@ -579,25 +570,23 @@ function adminPanel() {
     .map((user) => `<option value="${user.id}">${escapeHtml(user.nickname)}</option>`)
     .join("");
   return html`
-    <section class="panel">
+    <section class="panel admin-panel">
       <div class="panel-header">
         <h2>관리자</h2>
       </div>
-      <div class="panel-body form">
-        <form class="admin-grid" data-form="admin-host">
+      <div class="panel-body admin-body">
+        <form class="admin-host-row" data-form="admin-host">
           <select name="userId" required>
             <option value="">출제자 선택</option>
             ${playerOptions}
           </select>
           <button class="primary" type="submit">출제자 변경</button>
         </form>
-        <div class="grid-2">
+        <div class="admin-role-list">
           ${state.users.map((user) => html`
-            <div class="user-item">
-              <div>
-                <div class="user-name">${escapeHtml(user.nickname)}</div>
-                <span class="badge ${user.role === "admin" ? "admin" : ""}">${user.role === "admin" ? "관리자" : "일반"}</span>
-              </div>
+            <div class="admin-role-row">
+              <span class="admin-role-name">${escapeHtml(user.nickname)}</span>
+              <span class="badge ${user.role === "admin" ? "admin" : ""}">${user.role === "admin" ? "관리자" : "일반"}</span>
               <select data-action="admin-role" data-user-id="${user.id}">
                 <option value="user" ${user.role === "user" ? "selected" : ""}>일반</option>
                 <option value="admin" ${user.role === "admin" ? "selected" : ""}>관리자</option>
