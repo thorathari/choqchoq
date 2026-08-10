@@ -144,7 +144,7 @@ function escapeHtml(value) {
 }
 
 function adminCrown() {
-  return `<span class="admin-crown" title="관리자" aria-label="관리자">♛</span>`;
+  return `<span class="admin-crown" title="관리자" aria-label="관리자">👑</span>`;
 }
 
 function formatTime(ms) {
@@ -266,7 +266,7 @@ function renderGame() {
           <button class="theme-toggle" data-action="theme" title="${theme === "dark" ? "밝은 모드" : "다크 모드"}" aria-label="${theme === "dark" ? "밝은 모드로 전환" : "다크 모드로 전환"}">
             <span aria-hidden="true">${theme === "dark" ? "☀" : "☾"}</span>
           </button>
-          <span class="top-nickname ${state.me.role === "admin" ? "admin" : ""}">${escapeHtml(state.me.nickname)}${state.me.role === "admin" ? adminCrown() : ""}</span>
+          <span class="top-nickname ${state.me.role === "admin" ? "admin" : ""}">${escapeHtml(state.me.nickname)}${state.me.role === "admin" ? " 관리자" : ""}</span>
           <button class="logout-button" data-action="logout">로그아웃</button>
         </div>
       </header>
@@ -515,7 +515,7 @@ function userItem(user) {
           <div class="user-badges">
             <span class="badge ${user.status}">${statusLabels[user.status]}</span>
             ${isHost ? `<span class="badge host">출제자</span>` : ""}
-            ${user.role === "admin" ? adminCrown() : ""}
+            ${user.role === "admin" ? `<span class="badge admin">관리자</span>` : ""}
             ${isBan ? `<span class="badge away">제한</span>` : ""}
           </div>
         </div>
@@ -591,7 +591,7 @@ function adminPanel() {
           ${state.users.map((user) => html`
             <div class="admin-role-row">
               <span class="admin-role-name">${escapeHtml(user.nickname)}</span>
-              ${user.role === "admin" ? adminCrown() : `<span class="badge">일반</span>`}
+              <span class="badge ${user.role === "admin" ? "admin" : ""}">${user.role === "admin" ? "관리자" : "일반"}</span>
               <select data-action="admin-role" data-user-id="${user.id}">
                 <option value="user" ${user.role === "user" ? "selected" : ""}>일반</option>
                 <option value="admin" ${user.role === "admin" ? "selected" : ""}>관리자</option>
