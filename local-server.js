@@ -450,7 +450,7 @@ function publicState(currentUser = null) {
     serverNow: Date.now(),
     playerCount: players.length,
     reissueRequestCount: store.game.reissueRequests.length,
-    reissueEnabled: players.length > 3,
+    reissueEnabled: true,
     canGuess:
       !!currentUser &&
       store.game.phase === "active" &&
@@ -781,7 +781,6 @@ async function handleApi(req, res) {
       if (!user) return;
       if (store.game.phase !== "active") throw new Error("진행 중인 문제가 없습니다.");
       if (user.status !== "playing" || user.id === store.game.hostId) throw new Error("참여자만 리문요청을 할 수 있습니다.");
-      if (playingUsers().length <= 3) throw new Error("참여자가 4명 이상일 때만 리문요청이 가능합니다.");
       if (!store.game.reissueRequests.includes(user.id)) store.game.reissueRequests.push(user.id);
       if (store.game.reissueRequests.length >= 3) {
         reissueSameHost("리문요청 3명이 모여 같은 출제자가 다시 문제를 냅니다.");

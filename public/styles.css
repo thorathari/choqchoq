@@ -504,6 +504,42 @@ select:focus {
   font-size: 12px;
 }
 
+.round-hints {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(40, 90, 166, 0.08);
+}
+
+.round-hints-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  user-select: none;
+}
+
+.round-hints-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.round-hints-list span {
+  max-width: 100%;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--panel-solid);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
 .status-buttons {
   display: inline-flex;
   gap: 4px;

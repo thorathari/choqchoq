@@ -268,7 +268,6 @@ function renderGame() {
         <section class="main-column">
           ${gamePanel()}
           ${chatPanel()}
-          ${activityPanel()}
         </section>
         <aside class="side-column">
           ${usersPanel()}
@@ -368,6 +367,7 @@ function activeView(isHost) {
     <div class="problem">
       <div class="chosung"><span class="category">${escapeHtml(game.category)}</span><span>${escapeHtml(game.chosung)}</span></div>
       ${isHost ? hostTools() : guessTools()}
+      ${roundHints()}
     </div>
   `;
 }
@@ -395,10 +395,11 @@ function hostTools() {
 function guessTools() {
   const game = state.game;
   const alreadyRequested = game.reissueRequests.includes(state.me.id);
-  const reissueDisabled = !game.reissueEnabled || alreadyRequested || state.me.status !== "playing";
+  const reissueDisabled = alreadyRequested || state.me.status !== "playing";
   const reissueButton = html`
     <div class="actions participant-round-actions">
-      <button class="small-button" type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>리문요청 ${game.reissueRequestCount}/3</button>
+      <span class="badge reissue-count">요청 ${game.reissueRequestCount}/3</span>
+      <button class="small-button" type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>${alreadyRequested ? "요청 완료" : "리문요청"}</button>
     </div>
   `;
 
@@ -417,17 +418,16 @@ function guessTools() {
   `;
 }
 
-function activityPanel() {
+function roundHints() {
   const hints = state.game.hints || [];
+  if (!hints.length) return "";
   return html`
-    <section class="panel">
-      <div class="panel-header">
-        <h2>힌트</h2>
+    <div class="round-hints">
+      <span class="round-hints-label">힌트</span>
+      <div class="round-hints-list">
+        ${hints.map((hint) => `<span>${escapeHtml(hint.text)}</span>`).join("")}
       </div>
-      <div class="panel-body">
-        ${hints.length ? `<ul class="log-list">${hints.map((hint) => `<li class="log-item">${escapeHtml(hint.text)}</li>`).join("")}</ul>` : `<div class="empty">아직 힌트가 없습니다.</div>`}
-      </div>
-    </section>
+    </div>
   `;
 }
 

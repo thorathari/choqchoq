@@ -360,7 +360,7 @@ async function publicState(currentUser = null) {
     serverNow: Date.now(),
     playerCount: players.length,
     reissueRequestCount: game.reissueRequests.length,
-    reissueEnabled: players.length > 3,
+    reissueEnabled: true,
     canGuess:
       !!currentUser &&
       game.phase === "active" &&
@@ -577,7 +577,6 @@ async function requestReissue(user) {
   const game = await getGame();
   if (game.phase !== "active") throw new Error("진행 중인 문제가 없습니다.");
   if (user.status !== "playing" || user.id === game.hostId) throw new Error("참여자만 리문요청을 할 수 있습니다.");
-  if (playingUsers(users).length <= 3) throw new Error("참여자가 4명 이상일 때만 리문요청이 가능합니다.");
   if (!game.reissueRequests.includes(user.id)) game.reissueRequests.push(user.id);
 
   if (game.reissueRequests.length >= 3) {
