@@ -127,6 +127,21 @@ async function getScoreEvents() {
   return supabaseRequest("choq_score_events?select=*&order=created_at.asc&limit=100000", { prefer: "" });
 }
 
+async function getChatMessages() {
+  const rows = await supabaseRequest("choq_chat_messages?select=*,choq_users(nickname,role)&order=created_at.desc&limit=80", { prefer: "" });
+  return rows
+    .slice()
+    .reverse()
+    .map((message) => ({
+      id: message.id,
+      userId: message.user_id,
+      nickname: message.choq_users?.nickname || "알 수 없음",
+      role: message.choq_users?.role || "user",
+      text: message.message,
+      createdAt: message.created_at
+    }));
+}
+
 async function getGame() {
   const rows = await supabaseRequest("choq_game_state?id=eq.1&select=*&limit=1", { prefer: "" });
   if (rows?.[0]) return dbGameToGame(rows[0]);
@@ -295,6 +310,7 @@ function rankings(kind, users, events) {
 async function publicState(currentUser = null) {
   const { users, game } = await getFreshContext(currentUser);
   const events = await getScoreEvents();
+  const chatMessages = await getChatMessages();
   const host = users.find((user) => user.id === game.hostId) || null;
   const players = playingUsers(users);
   const isHost = currentUser && currentUser.id === game.hostId;
@@ -333,8 +349,23 @@ async function publicState(currentUser = null) {
       week: rankings("week", users, events),
       month: rankings("month", users, events)
     },
+    chatMessages,
     recentScoreEvents: events.slice(-30).reverse()
   };
+}
+
+async function addChatMessage(user, text) {
+  const message = String(text || "").trim();
+  if (!message) throw new Error("메시지를 입력해주세요.");
+  if (message.length > 300) throw new Error("메시지는 300자 이하로 입력해주세요.");
+
+  await supabaseRequest("choq_chat_messages", {
+    method: "POST",
+    body: {
+      user_id: user.id,
+      message
+    }
+  });
 }
 
 async function updateUserStatus(targetId, status) {
@@ -513,6 +544,7 @@ async function adminSetHost(userId) {
 
 module.exports = {
   STATUSES,
+  addChatMessage,
   adminSetHost,
   createQuestion,
   addHint,

@@ -200,7 +200,7 @@ function renderGame() {
         </div>
         <div class="userbar">
           <span class="badge ${state.me.role === "admin" ? "admin" : ""}">${escapeHtml(state.me.nickname)}${state.me.role === "admin" ? " 관리자" : ""}</span>
-          <select data-action="self-status">${statusOptions(state.me.status)}</select>
+          ${statusButtons(state.me.status, "self-status")}
           <button class="icon-button" data-action="theme" title="테마 전환">${theme === "dark" ? "밝은모드" : "다크모드"}</button>
           <button data-action="logout">로그아웃</button>
         </div>
@@ -208,13 +208,14 @@ function renderGame() {
       <div class="layout">
         <section class="main-column">
           ${gamePanel()}
+          ${chatPanel()}
           ${activityPanel()}
-          ${state.me.role === "admin" ? adminPanel() : ""}
         </section>
         <aside class="side-column">
           ${usersPanel()}
           ${scorePanel()}
           ${rankingPanel()}
+          ${state.me.role === "admin" ? adminPanel() : ""}
         </aside>
       </div>
     </div>
@@ -380,6 +381,40 @@ function activityPanel() {
   `;
 }
 
+function chatPanel() {
+  const messages = state.chatMessages || [];
+  return html`
+    <section class="panel chat-panel">
+      <div class="panel-header">
+        <h2>대화</h2>
+        <span class="badge">${messages.length}개</span>
+      </div>
+      <div class="panel-body chat-body">
+        <div class="chat-list">
+          ${messages.length ? messages.map(chatMessage).join("") : `<div class="empty">아직 대화가 없습니다.</div>`}
+        </div>
+        <form class="chat-form" data-form="chat">
+          <input name="text" maxlength="300" autocomplete="off" placeholder="메시지 입력" required />
+          <button class="primary" type="submit">전송</button>
+        </form>
+      </div>
+    </section>
+  `;
+}
+
+function chatMessage(message) {
+  const mine = state.me && message.userId === state.me.id;
+  return html`
+    <div class="chat-message ${mine ? "mine" : ""}">
+      <div class="chat-meta">
+        <strong>${escapeHtml(message.nickname)}</strong>
+        ${message.role === "admin" ? `<span class="badge admin">관리자</span>` : ""}
+      </div>
+      <div class="chat-bubble">${escapeHtml(message.text)}</div>
+    </div>
+  `;
+}
+
 function usersPanel() {
   return html`
     <section class="panel">
@@ -412,7 +447,7 @@ function userItem(user) {
         </div>
       </div>
       <div class="user-controls">
-        ${canAdmin ? `<select data-action="admin-status" data-user-id="${user.id}">${statusOptions(user.status)}</select>` : ""}
+        ${canAdmin ? statusButtons(user.status, "admin-status", user.id) : ""}
       </div>
     </li>
   `;
@@ -503,6 +538,23 @@ function statusOptions(selected) {
     .join("");
 }
 
+function statusButtons(selected, action, userId = "") {
+  return html`
+    <div class="status-buttons" role="group" aria-label="상태 변경">
+      ${Object.entries(statusLabels).map(([value, label]) => `
+        <button
+          type="button"
+          class="status-button ${selected === value ? "active" : ""}"
+          data-action="${action}"
+          data-status="${value}"
+          ${userId ? `data-user-id="${userId}"` : ""}
+          ${selected === value ? "disabled" : ""}
+        >${label}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
 function updateTimers() {
   document.querySelectorAll("[data-timer]").forEach((node) => {
     const deadline = Number(node.dataset.timer);
@@ -530,6 +582,7 @@ app.addEventListener("click", async (event) => {
   }
 
   const action = event.target.closest("[data-action]")?.dataset.action;
+  const actionTarget = event.target.closest("[data-action]");
   try {
     if (action === "logout") {
       await api("/api/logout");
@@ -552,6 +605,14 @@ app.addEventListener("click", async (event) => {
     if (action === "reissue-request") {
       await api("/api/reissue-request");
     }
+    if (action === "self-status") {
+      await api("/api/status", { status: actionTarget.dataset.status });
+      await loadState({ forceRender: true });
+    }
+    if (action === "admin-status") {
+      await api("/api/status", { userId: actionTarget.dataset.userId, status: actionTarget.dataset.status });
+      await loadState({ forceRender: true });
+    }
   } catch (error) {
     alert(error.message);
   }
@@ -561,12 +622,6 @@ app.addEventListener("change", async (event) => {
   const target = event.target;
   const action = target.dataset.action;
   try {
-    if (action === "self-status") {
-      await api("/api/status", { status: target.value });
-    }
-    if (action === "admin-status") {
-      await api("/api/status", { userId: target.dataset.userId, status: target.value });
-    }
     if (action === "admin-role") {
       await api("/api/admin/role", { userId: target.dataset.userId, role: target.value });
     }
@@ -603,6 +658,11 @@ app.addEventListener("submit", async (event) => {
     if (name === "guess") {
       const result = await api("/api/guess", formData(form));
       if (!result.correct) form.reset();
+      await loadState({ forceRender: true });
+    }
+    if (name === "chat") {
+      await api("/api/chat", formData(form));
+      form.reset();
       await loadState({ forceRender: true });
     }
     if (name === "admin-host") {

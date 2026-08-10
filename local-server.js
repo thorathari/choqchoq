@@ -28,6 +28,7 @@ function defaultStore() {
   return {
     users: [],
     scoreEvents: [],
+    chatMessages: [],
     game: {
       phase: "waiting",
       hostId: null,
@@ -416,7 +417,8 @@ function publicState(currentUser = null) {
       week: rankings("week"),
       month: rankings("month")
     },
-    recentScoreEvents: store.scoreEvents.slice(-30).reverse()
+    recentScoreEvents: store.scoreEvents.slice(-30).reverse(),
+    chatMessages: store.chatMessages.slice(-80)
   };
 }
 
@@ -613,6 +615,28 @@ async function handleApi(req, res) {
       if (store.game.phase !== "active" || store.game.hostId !== user.id) throw new Error("현재 출제자만 힌트를 줄 수 있습니다.");
       if (!text || text.length > 80) throw new Error("힌트는 1~80자로 입력해주세요.");
       store.game.hints.push({ id: randomId("hint"), text, createdAt: new Date().toISOString() });
+      saveStore();
+      broadcastState();
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/chat") {
+      const user = requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const text = String(body.text || "").trim();
+      if (!text) throw new Error("메시지를 입력해주세요.");
+      if (text.length > 300) throw new Error("메시지는 300자 이하로 입력해주세요.");
+      store.chatMessages.push({
+        id: randomId("chat"),
+        userId: user.id,
+        nickname: user.nickname,
+        role: user.role,
+        text,
+        createdAt: new Date().toISOString()
+      });
+      store.chatMessages = store.chatMessages.slice(-200);
       saveStore();
       broadcastState();
       sendJson(res, 200, { ok: true });

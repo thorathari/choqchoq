@@ -19,6 +19,7 @@ const {
 } = require("../server/db");
 const {
   STATUSES,
+  addChatMessage,
   addHint,
   adminSetHost,
   createQuestion,
@@ -178,6 +179,16 @@ module.exports = async function handler(req, res) {
       if (!user) return;
       const body = await readJson(req);
       await addHint(user, String(body.text || "").trim());
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (path === "chat") {
+      if (!requireMethod(req, res, "POST")) return;
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readJson(req);
+      await addChatMessage(user, body.text);
       sendJson(res, 200, { ok: true });
       return;
     }

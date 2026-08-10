@@ -48,6 +48,13 @@ create table if not exists public.choq_score_events (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.choq_chat_messages (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references public.choq_users(id) on delete cascade,
+  message text not null check (char_length(message) between 1 and 300),
+  created_at timestamptz not null default now()
+);
+
 insert into public.choq_game_state (id)
 values (1)
 on conflict (id) do nothing;
@@ -61,6 +68,10 @@ create index if not exists choq_score_events_user_created_idx
 create index if not exists choq_score_events_created_idx
   on public.choq_score_events (created_at desc);
 
+create index if not exists choq_chat_messages_created_idx
+  on public.choq_chat_messages (created_at desc);
+
 alter table public.choq_users enable row level security;
 alter table public.choq_game_state enable row level security;
 alter table public.choq_score_events enable row level security;
+alter table public.choq_chat_messages enable row level security;
