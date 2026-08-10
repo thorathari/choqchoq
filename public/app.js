@@ -143,6 +143,10 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
+function adminCrown() {
+  return `<span class="admin-crown" title="관리자" aria-label="관리자">♛</span>`;
+}
+
 function formatTime(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
   const minutes = String(Math.floor(total / 60)).padStart(2, "0");
@@ -262,7 +266,7 @@ function renderGame() {
           <button class="theme-toggle" data-action="theme" title="${theme === "dark" ? "밝은 모드" : "다크 모드"}" aria-label="${theme === "dark" ? "밝은 모드로 전환" : "다크 모드로 전환"}">
             <span aria-hidden="true">${theme === "dark" ? "☀" : "☾"}</span>
           </button>
-          <span class="top-nickname ${state.me.role === "admin" ? "admin" : ""}">${escapeHtml(state.me.nickname)}${state.me.role === "admin" ? " 관리자" : ""}</span>
+          <span class="top-nickname ${state.me.role === "admin" ? "admin" : ""}">${escapeHtml(state.me.nickname)}${state.me.role === "admin" ? adminCrown() : ""}</span>
           <button class="logout-button" data-action="logout">로그아웃</button>
         </div>
       </header>
@@ -448,7 +452,6 @@ function chatPanel() {
     <section class="panel chat-panel">
       <div class="panel-header">
         <h2>대화</h2>
-        <span class="badge">${messages.length}개</span>
       </div>
       <div class="panel-body chat-body">
         <div class="chat-list">
@@ -466,13 +469,15 @@ function chatPanel() {
 
 function chatMessage(message) {
   const mine = state.me && message.userId === state.me.id;
+  const meta = html`
+    ${mine ? "" : `<strong>${escapeHtml(message.nickname)}</strong>`}
+    ${message.role === "admin" ? adminCrown() : ""}
+    ${message.pending ? `<span class="sending-dot">전송 중</span>` : ""}
+  `;
+  const showMeta = meta.trim().length > 0;
   return html`
     <div class="chat-message ${mine ? "mine" : ""} ${message.pending ? "pending" : ""}">
-      <div class="chat-meta">
-        <strong>${escapeHtml(message.nickname)}</strong>
-        ${message.role === "admin" ? `<span class="badge admin">관리자</span>` : ""}
-        ${message.pending ? `<span class="sending-dot">전송 중</span>` : ""}
-      </div>
+      ${showMeta ? `<div class="chat-meta ${mine ? "mine-meta" : ""}">${meta}</div>` : ""}
       <div class="chat-bubble">${escapeHtml(message.text)}</div>
     </div>
   `;
@@ -510,7 +515,7 @@ function userItem(user) {
           <div class="user-badges">
             <span class="badge ${user.status}">${statusLabels[user.status]}</span>
             ${isHost ? `<span class="badge host">출제자</span>` : ""}
-            ${user.role === "admin" ? `<span class="badge admin">관리자</span>` : ""}
+            ${user.role === "admin" ? adminCrown() : ""}
             ${isBan ? `<span class="badge away">제한</span>` : ""}
           </div>
         </div>
@@ -586,7 +591,7 @@ function adminPanel() {
           ${state.users.map((user) => html`
             <div class="admin-role-row">
               <span class="admin-role-name">${escapeHtml(user.nickname)}</span>
-              <span class="badge ${user.role === "admin" ? "admin" : ""}">${user.role === "admin" ? "관리자" : "일반"}</span>
+              ${user.role === "admin" ? adminCrown() : `<span class="badge">일반</span>`}
               <select data-action="admin-role" data-user-id="${user.id}">
                 <option value="user" ${user.role === "user" ? "selected" : ""}>일반</option>
                 <option value="admin" ${user.role === "admin" ? "selected" : ""}>관리자</option>

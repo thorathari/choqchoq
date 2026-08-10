@@ -196,6 +196,7 @@ select:focus {
 .top-nickname {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   min-height: 32px;
   max-width: 150px;
   padding: 0 10px;
@@ -213,6 +214,22 @@ select:focus {
 
 .top-nickname.admin {
   color: var(--blue);
+}
+
+.admin-crown {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  border: 1px solid rgba(240, 195, 106, 0.48);
+  border-radius: 999px;
+  background: rgba(240, 195, 106, 0.16);
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  user-select: none;
 }
 
 .logout-button {
@@ -772,6 +789,13 @@ select:focus {
   color: var(--muted);
 }
 
+.chat-meta .admin-crown {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  font-size: 10px;
+}
+
 .chat-bubble {
   max-width: min(72%, 520px);
   padding: 7px 9px;
@@ -908,6 +932,10 @@ select:focus {
   min-height: 22px;
   padding: 0 7px;
   font-size: 11px;
+}
+
+.admin-role-row .admin-crown {
+  justify-self: center;
 }
 
 .admin-role-name {
