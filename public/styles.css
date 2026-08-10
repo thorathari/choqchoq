@@ -482,11 +482,20 @@ select:focus {
   gap: 8px;
 }
 
+.hint-submit-row input,
+.hint-submit-row .small-button {
+  min-height: 38px;
+}
+
 .compact-host-tools .small-button {
   white-space: nowrap;
 }
 
 .host-secondary-actions {
+  justify-content: flex-end;
+}
+
+.participant-round-actions {
   justify-content: flex-end;
 }
 
@@ -626,6 +635,7 @@ select:focus {
   gap: 12px;
   height: clamp(480px, 66vh, 760px);
   min-height: 0;
+  position: relative;
 }
 
 .chat-list {
@@ -692,6 +702,32 @@ select:focus {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
+}
+
+.scroll-bottom-button {
+  position: absolute;
+  left: 50%;
+  bottom: 62px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--panel-solid);
+  box-shadow: var(--soft-shadow);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 8px);
+}
+
+.scroll-bottom-button.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
 }
 
 .timer {
@@ -833,6 +869,10 @@ select:focus {
 
   .chat-form {
     grid-template-columns: 1fr;
+  }
+
+  .scroll-bottom-button {
+    bottom: 104px;
   }
 
   .chat-panel {

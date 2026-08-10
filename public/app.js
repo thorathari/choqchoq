@@ -13,6 +13,7 @@ let chatDraftValue = "";
 let chatDraftSelectionStart = null;
 let chatDraftSelectionEnd = null;
 let chatDraftFocused = false;
+let isChatScrolledAway = false;
 const pendingChatMessages = [];
 
 const app = document.querySelector("#app");
@@ -64,9 +65,13 @@ function restoreChatScroll(snapshot, forceBottom = false) {
   if (!list) return;
   if (forceBottom || !snapshot || snapshot.isNearBottom) {
     list.scrollTop = list.scrollHeight;
+    isChatScrolledAway = false;
+    updateChatBottomButton();
     return;
   }
   list.scrollTop = Math.max(0, list.scrollHeight - list.clientHeight - snapshot.distanceFromBottom);
+  isChatScrolledAway = true;
+  updateChatBottomButton();
 }
 
 function applyStatePayload(payload, options = {}) {
@@ -389,22 +394,24 @@ function guessTools() {
   const game = state.game;
   const alreadyRequested = game.reissueRequests.includes(state.me.id);
   const reissueDisabled = !game.reissueEnabled || alreadyRequested || state.me.status !== "playing";
+  const reissueButton = html`
+    <div class="actions participant-round-actions">
+      <button class="small-button" type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>리문요청 ${game.reissueRequestCount}/3</button>
+    </div>
+  `;
+
   if (!game.canGuess) {
     return html`
       <div class="message ${game.guessBlockedReason ? "danger-text" : ""}">
         ${escapeHtml(game.guessBlockedReason || "현재 상태에서는 정답을 제출할 수 없습니다.")}
       </div>
-      <div class="actions">
-        <button class="small-button" type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>리문요청 ${game.reissueRequestCount}/3</button>
-      </div>
+      ${reissueButton}
     `;
   }
 
   return html`
     <div class="message">채팅에 초성이 맞는 단어를 입력하면 답변으로 제출됩니다.</div>
-    <div class="actions">
-      <button class="small-button" type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>리문요청 ${game.reissueRequestCount}/3</button>
-    </div>
+    ${reissueButton}
   `;
 }
 
@@ -441,6 +448,7 @@ function chatPanel() {
         <div class="chat-list">
           ${messages.length ? messages.map(chatMessage).join("") : `<div class="empty">아직 대화가 없습니다.</div>`}
         </div>
+        <button class="scroll-bottom-button ${isChatScrolledAway ? "visible" : ""}" type="button" data-action="chat-bottom" aria-label="맨 아래로 이동">↓</button>
         <form class="chat-form" data-form="chat">
           <input name="text" maxlength="300" autocomplete="off" placeholder="${placeholder}" required />
           <button class="primary" type="submit">전송</button>
@@ -680,6 +688,19 @@ function removePendingChatMessage(id) {
   if (index >= 0) pendingChatMessages.splice(index, 1);
 }
 
+function updateChatBottomButton() {
+  const button = document.querySelector(".scroll-bottom-button");
+  if (button) button.classList.toggle("visible", isChatScrolledAway);
+}
+
+function scrollChatToBottom() {
+  const list = document.querySelector(".chat-list");
+  if (!list) return;
+  list.scrollTop = list.scrollHeight;
+  isChatScrolledAway = false;
+  updateChatBottomButton();
+}
+
 app.addEventListener("click", async (event) => {
   const modeButton = event.target.closest("[data-auth-mode]");
   if (modeButton) {
@@ -719,6 +740,9 @@ app.addEventListener("click", async (event) => {
     }
     if (action === "reissue-request") {
       applyStatePayload(await api("/api/reissue-request"));
+    }
+    if (action === "chat-bottom") {
+      scrollChatToBottom();
     }
     if (action === "self-status") {
       applyStatePayload(await api("/api/status", { status: actionTarget.dataset.status }));
@@ -765,6 +789,14 @@ app.addEventListener("focusout", (event) => {
 app.addEventListener("input", (event) => {
   if (event.target.closest?.(".chat-form")) syncChatDraftFromInput(event.target);
 });
+
+app.addEventListener("scroll", (event) => {
+  if (!event.target.classList?.contains("chat-list")) return;
+  const list = event.target;
+  const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+  isChatScrolledAway = distanceFromBottom >= 80;
+  updateChatBottomButton();
+}, true);
 
 app.addEventListener("submit", async (event) => {
   event.preventDefault();
