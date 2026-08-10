@@ -8,8 +8,11 @@ const SCORE_TYPES = {
   ANSWER_CORRECT: "ANSWER_CORRECT",
   QUESTION_SOLVED: "QUESTION_SOLVED",
   HOST_TRANSFER: "HOST_TRANSFER",
+  HOST_TIMEOUT: "HOST_TRANSFER",
   ADMIN_ADJUST: "ADMIN_ADJUST"
 };
+
+const HOST_QUESTION_TIMEOUT_MS = 3 * 60 * 1000;
 
 function nowIso() {
   return new Date().toISOString();
@@ -204,6 +207,7 @@ function setHost(game, userId, message) {
   game.hostId = userId;
   game.roundId += 1;
   resetRoundFields(game);
+  game.firstGuessDeadlineAt = Date.now() + HOST_QUESTION_TIMEOUT_MS;
   game.lastSystemMessage = message || "새 출제자가 정해졌습니다.";
 }
 
@@ -235,7 +239,7 @@ function maybeStartGame(game, users) {
   return false;
 }
 
-function advanceGame(game, users) {
+async function advanceGame(game, users) {
   let changed = maybeStartGame(game, users);
   const players = playingUsers(users);
 
@@ -263,13 +267,28 @@ function advanceGame(game, users) {
     }
   }
 
+  if (game.phase === "hosting" && game.hostId && game.firstGuessDeadlineAt && game.firstGuessDeadlineAt <= Date.now()) {
+    const previousHost = users.find((user) => user.id === game.hostId) || null;
+    const candidates = nextHostCandidates(users, game.hostId);
+    if (previousHost) {
+      await addScore(previousHost.id, SCORE_TYPES.HOST_TIMEOUT, -2, game.roundId, { reason: "host_question_timeout" });
+    }
+    if (!candidates.length) {
+      returnToWaiting(game, "출제권을 넘길 참여자가 없어 대기 상태로 돌아갑니다.");
+    } else {
+      const nextHost = chooseRandom(candidates);
+      setHost(game, nextHost.id, "출제자가 3분 동안 문제를 내지 않아 -2점 처리되고 출제권이 넘어갔습니다.");
+    }
+    changed = true;
+  }
+
   return changed;
 }
 
 async function getFreshContext(currentUser = null) {
   const users = await getUsers();
   let game = await getGame();
-  if (advanceGame(game, users)) {
+  if (await advanceGame(game, users)) {
     game = await saveGame(game);
   }
   return { users, game, currentUser };
@@ -460,7 +479,9 @@ function cryptoId(prefix) {
 async function submitGuess(user, answer) {
   const users = await getUsers();
   let game = await getGame();
-  advanceGame(game, users);
+  if (await advanceGame(game, users)) {
+    game = await saveGame(game);
+  }
   if (game.phase !== "active") throw new Error("진행 중인 문제가 없습니다.");
   if (user.status !== "playing") throw new Error("참여 상태에서만 정답을 제출할 수 있습니다.");
   if (game.hostId === user.id) throw new Error("출제자는 정답을 제출할 수 없습니다.");

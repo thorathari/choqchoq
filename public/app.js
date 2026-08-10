@@ -7,6 +7,8 @@ let theme = localStorage.getItem("choqchoq-theme") || (window.matchMedia("(prefe
 let isSubmitting = false;
 let forceNextChatScroll = false;
 let pendingChatSerial = 0;
+let suppressChatFocusUntil = 0;
+let isRendering = false;
 const pendingChatMessages = [];
 
 const app = document.querySelector("#app");
@@ -141,6 +143,7 @@ function formatTime(ms) {
 function currentDeadline() {
   if (!state?.game) return null;
   if (state.game.phase === "countdown") return state.game.countdownEndsAt;
+  if (state.game.phase === "hosting") return state.game.firstGuessDeadlineAt;
   if (state.game.phase === "active") return state.game.lastGuessDeadlineAt || state.game.firstGuessDeadlineAt;
   return null;
 }
@@ -155,7 +158,12 @@ function render() {
     renderAuth();
     return;
   }
-  renderGame();
+  isRendering = true;
+  try {
+    renderGame();
+  } finally {
+    isRendering = false;
+  }
   requestAnimationFrame(() => {
     restoreChatScroll(chatSnapshot, shouldForceChatBottom);
     restoreChatDraft(chatDraft);
@@ -241,10 +249,11 @@ function renderGame() {
           </div>
         </div>
         <div class="userbar">
-          <span class="badge ${state.me.role === "admin" ? "admin" : ""}">${escapeHtml(state.me.nickname)}${state.me.role === "admin" ? " 관리자" : ""}</span>
-          ${statusButtons(state.me.status, "self-status")}
-          <button class="icon-button" data-action="theme" title="테마 전환">${theme === "dark" ? "밝은모드" : "다크모드"}</button>
-          <button data-action="logout">로그아웃</button>
+          <button class="theme-toggle" data-action="theme" title="${theme === "dark" ? "밝은 모드" : "다크 모드"}" aria-label="${theme === "dark" ? "밝은 모드로 전환" : "다크 모드로 전환"}">
+            <span aria-hidden="true">${theme === "dark" ? "☀" : "☾"}</span>
+          </button>
+          <span class="top-nickname ${state.me.role === "admin" ? "admin" : ""}">${escapeHtml(state.me.nickname)}${state.me.role === "admin" ? " 관리자" : ""}</span>
+          <button class="logout-button" data-action="logout">로그아웃</button>
         </div>
       </header>
       <div class="layout">
@@ -452,7 +461,11 @@ function usersPanel() {
         <h2>참여자 목록</h2>
         <span class="badge playing">${state.game.playerCount}명 참여</span>
       </div>
-      <div class="panel-body">
+      <div class="panel-body users-body">
+        <div class="my-status-row">
+          <span class="muted">내 상태</span>
+          ${statusButtons(state.me.status, "self-status")}
+        </div>
         <ul class="user-list">
           ${state.users.map(userItem).join("")}
         </ul>
@@ -597,6 +610,7 @@ function formData(form) {
 }
 
 function focusChatInput() {
+  if (Date.now() < suppressChatFocusUntil) return;
   const input = document.querySelector('.chat-form input[name="text"]');
   if (input) input.focus({ preventScroll: true });
 }
@@ -616,8 +630,8 @@ function restoreChatDraft(draft) {
   const input = document.querySelector('.chat-form input[name="text"]');
   if (!input) return;
   input.value = draft.value;
-  input.focus({ preventScroll: true });
-  if (draft.selectionStart !== null && draft.selectionEnd !== null) {
+  if (Date.now() >= suppressChatFocusUntil) input.focus({ preventScroll: true });
+  if (document.activeElement === input && draft.selectionStart !== null && draft.selectionEnd !== null) {
     input.setSelectionRange(draft.selectionStart, draft.selectionEnd);
   }
 }
@@ -641,6 +655,20 @@ function addPendingChatMessage(text) {
 function removePendingChatMessage(id) {
   const index = pendingChatMessages.findIndex((message) => message.id === id);
   if (index >= 0) pendingChatMessages.splice(index, 1);
+}
+
+function trackVirtualKeyboardClose() {
+  if (!window.visualViewport) return;
+  let lastHeight = window.visualViewport.height;
+  window.visualViewport.addEventListener("resize", () => {
+    const nextHeight = window.visualViewport.height;
+    const chatInput = document.querySelector('.chat-form input[name="text"]');
+    if (chatInput && document.activeElement === chatInput && nextHeight - lastHeight > 80) {
+      suppressChatFocusUntil = Date.now() + 1600;
+      chatInput.blur();
+    }
+    lastHeight = nextHeight;
+  });
 }
 
 app.addEventListener("click", async (event) => {
@@ -707,6 +735,16 @@ app.addEventListener("change", async (event) => {
   }
 });
 
+app.addEventListener("focusin", (event) => {
+  if (event.target.closest?.(".chat-form")) suppressChatFocusUntil = 0;
+});
+
+app.addEventListener("focusout", (event) => {
+  if (!isRendering && event.target.closest?.(".chat-form")) {
+    suppressChatFocusUntil = Math.max(suppressChatFocusUntil, Date.now() + 800);
+  }
+});
+
 app.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.target;
@@ -764,4 +802,5 @@ app.addEventListener("submit", async (event) => {
   }
 });
 
+trackVirtualKeyboardClose();
 loadState();

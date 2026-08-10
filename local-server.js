@@ -13,15 +13,19 @@ const SCORE_TYPES = {
   ANSWER_CORRECT: "ANSWER_CORRECT",
   QUESTION_SOLVED: "QUESTION_SOLVED",
   HOST_TRANSFER: "HOST_TRANSFER",
+  HOST_TIMEOUT: "HOST_TRANSFER",
   ADMIN_ADJUST: "ADMIN_ADJUST"
 };
+
+const HOST_QUESTION_TIMEOUT_MS = 3 * 60 * 1000;
 
 let store = loadStore();
 let sessions = new Map();
 let clients = new Map();
 let timers = {
   startCountdown: null,
-  roundDeadline: null
+  roundDeadline: null,
+  hostQuestionDeadline: null
 };
 
 function defaultStore() {
@@ -255,18 +259,22 @@ function resetRoundFields() {
 function setHost(userId, message) {
   clearTimer("startCountdown");
   clearTimer("roundDeadline");
+  clearTimer("hostQuestionDeadline");
   store.game.phase = "hosting";
   store.game.hostId = userId;
   store.game.roundId += 1;
   resetRoundFields();
+  store.game.firstGuessDeadlineAt = Date.now() + HOST_QUESTION_TIMEOUT_MS;
   setSystemMessage(message || "새 출제자가 정해졌습니다.");
   saveStore();
+  scheduleTimers();
   broadcastState();
 }
 
 function returnToWaiting(message) {
   clearTimer("startCountdown");
   clearTimer("roundDeadline");
+  clearTimer("hostQuestionDeadline");
   store.game.phase = "waiting";
   store.game.hostId = null;
   resetRoundFields();
@@ -305,6 +313,7 @@ function handleCountdownComplete() {
 function scheduleTimers() {
   clearTimer("startCountdown");
   clearTimer("roundDeadline");
+  clearTimer("hostQuestionDeadline");
 
   if (store.game.phase === "countdown" && store.game.countdownEndsAt) {
     const delay = Math.max(0, store.game.countdownEndsAt - Date.now());
@@ -317,6 +326,11 @@ function scheduleTimers() {
       const delay = Math.max(0, deadline - Date.now());
       timers.roundDeadline = setTimeout(handleRoundDeadline, delay);
     }
+  }
+
+  if (store.game.phase === "hosting" && store.game.firstGuessDeadlineAt) {
+    const delay = Math.max(0, store.game.firstGuessDeadlineAt - Date.now());
+    timers.hostQuestionDeadline = setTimeout(handleHostQuestionDeadline, delay);
   }
 }
 
@@ -334,6 +348,19 @@ function handleRoundDeadline() {
   }
   const nextHost = chooseRandom(candidates);
   setHost(nextHost.id, "제한시간 동안 정답이 없어 출제권이 랜덤으로 넘어갔습니다.");
+}
+
+function handleHostQuestionDeadline() {
+  if (store.game.phase !== "hosting" || !store.game.hostId) return;
+  const hostId = store.game.hostId;
+  const candidates = nextHostCandidates(hostId);
+  addScore(hostId, SCORE_TYPES.HOST_TIMEOUT, -2, { reason: "host_question_timeout" });
+  if (candidates.length < 1) {
+    returnToWaiting("출제권을 넘길 참여자가 없어 대기 상태로 돌아갑니다.");
+    return;
+  }
+  const nextHost = chooseRandom(candidates);
+  setHost(nextHost.id, "출제자가 3분 동안 문제를 내지 않아 -2점 처리되고 출제권이 넘어갔습니다.");
 }
 
 function finishRoundWithWinner(winner) {
