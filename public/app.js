@@ -5,6 +5,7 @@ let rankMode = "day";
 let tickHandle = null;
 let theme = localStorage.getItem("choqchoq-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 let isSubmitting = false;
+let forceNextChatScroll = false;
 
 const app = document.querySelector("#app");
 const APP_NAME = "촠촠";
@@ -40,8 +41,21 @@ async function api(path, body = {}) {
   return payload;
 }
 
-function applyStatePayload(payload) {
+function isChatNearBottom() {
+  const list = document.querySelector(".chat-list");
+  if (!list) return true;
+  return list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+}
+
+function restoreChatScroll(shouldStick) {
+  const list = document.querySelector(".chat-list");
+  if (!list || !shouldStick) return;
+  list.scrollTop = list.scrollHeight;
+}
+
+function applyStatePayload(payload, options = {}) {
   if (!payload?.state) return false;
+  forceNextChatScroll = !!options.forceChatBottom;
   state = payload.state;
   render();
   if (state.me) connectEvents();
@@ -120,12 +134,15 @@ function currentDeadline() {
 }
 
 function render() {
+  const shouldStickChat = forceNextChatScroll || isChatNearBottom();
+  forceNextChatScroll = false;
   clearInterval(tickHandle);
   if (!state?.me) {
     renderAuth();
     return;
   }
   renderGame();
+  requestAnimationFrame(() => restoreChatScroll(shouldStickChat));
   if (currentDeadline()) {
     tickHandle = setInterval(updateTimers, 500);
     updateTimers();
@@ -354,36 +371,22 @@ function guessTools() {
   }
 
   return html`
-    <form class="form" data-form="guess">
-      <div class="form-row">
-        <label>정답</label>
-        <input name="answer" maxlength="40" autocomplete="off" required />
-      </div>
-      <div class="actions">
-        <button class="primary" type="submit">정답 제출</button>
-        <button type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>리문요청 ${game.reissueRequestCount}/3</button>
-      </div>
-    </form>
+    <div class="message">채팅에 초성이 맞는 단어를 입력하면 답변으로 제출됩니다.</div>
+    <div class="actions">
+      <button type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>리문요청 ${game.reissueRequestCount}/3</button>
+    </div>
   `;
 }
 
 function activityPanel() {
   const hints = state.game.hints || [];
-  const guesses = state.game.guesses || [];
   return html`
     <section class="panel">
       <div class="panel-header">
-        <h2>힌트와 답변</h2>
+        <h2>힌트</h2>
       </div>
-      <div class="panel-body grid-2">
-        <div>
-          <h3>힌트</h3>
-          ${hints.length ? `<ul class="log-list">${hints.map((hint) => `<li class="log-item">${escapeHtml(hint.text)}</li>`).join("")}</ul>` : `<div class="empty">아직 힌트가 없습니다.</div>`}
-        </div>
-        <div>
-          <h3>답변</h3>
-          ${guesses.length ? `<ul class="log-list">${guesses.slice().reverse().map((guess) => `<li class="log-item"><strong>${escapeHtml(guess.nickname)}</strong> ${escapeHtml(guess.answer)}${guess.correct ? " <span class=\"badge playing\">정답</span>" : ""}</li>`).join("")}</ul>` : `<div class="empty">아직 답변이 없습니다.</div>`}
-        </div>
+      <div class="panel-body">
+        ${hints.length ? `<ul class="log-list">${hints.map((hint) => `<li class="log-item">${escapeHtml(hint.text)}</li>`).join("")}</ul>` : `<div class="empty">아직 힌트가 없습니다.</div>`}
       </div>
     </section>
   `;
@@ -391,6 +394,7 @@ function activityPanel() {
 
 function chatPanel() {
   const messages = state.chatMessages || [];
+  const placeholder = state.game.canGuess ? "대화 또는 정답 입력" : "메시지 입력";
   return html`
     <section class="panel chat-panel">
       <div class="panel-header">
@@ -402,7 +406,7 @@ function chatPanel() {
           ${messages.length ? messages.map(chatMessage).join("") : `<div class="empty">아직 대화가 없습니다.</div>`}
         </div>
         <form class="chat-form" data-form="chat">
-          <input name="text" maxlength="300" autocomplete="off" placeholder="메시지 입력" required />
+          <input name="text" maxlength="300" autocomplete="off" placeholder="${placeholder}" required />
           <button class="primary" type="submit">전송</button>
         </form>
       </div>
@@ -668,7 +672,7 @@ app.addEventListener("submit", async (event) => {
     if (name === "chat") {
       const result = await api("/api/chat", formData(form));
       form.reset();
-      applyStatePayload(result);
+      applyStatePayload(result, { forceChatBottom: true });
     }
     if (name === "admin-host") {
       applyStatePayload(await api("/api/admin/host", formData(form)));

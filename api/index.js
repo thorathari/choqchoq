@@ -26,6 +26,7 @@ const {
   publicState,
   requestReissue,
   reissueSameHost,
+  submitChatMessage,
   submitGuess,
   syncAfterStatusChange,
   transferHostWithPenalty,
@@ -193,8 +194,8 @@ module.exports = async function handler(req, res) {
       const user = await requireUser(req, res);
       if (!user) return;
       const body = await readJson(req);
-      await addChatMessage(user, body.text);
-      await sendState(res, user.id);
+      const result = await submitChatMessage(user, body.text);
+      await sendState(res, user.id, result);
       return;
     }
 

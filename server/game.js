@@ -27,6 +27,10 @@ function normalizeAnswer(value) {
   return String(value || "").replace(/\s+/g, "").trim();
 }
 
+function normalizeChosung(value) {
+  return normalizeAnswer(toChosung(value));
+}
+
 function hasOnlyHangulAndSpaces(value) {
   return /^[가-힣\s]+$/.test(String(value || ""));
 }
@@ -313,7 +317,6 @@ async function publicState(currentUser = null) {
   const host = users.find((user) => user.id === game.hostId) || null;
   const players = playingUsers(users);
   const isHost = currentUser && currentUser.id === game.hostId;
-  const isAdmin = currentUser && currentUser.role === "admin";
   const currentRoundBanApplies = currentUser && game.answerBanUserId === currentUser.id && game.answerBanRoundId === game.roundId;
   const publicGame = {
     ...game,
@@ -332,9 +335,7 @@ async function publicState(currentUser = null) {
     guessBlockedReason: currentRoundBanApplies ? "연속 정답 제한으로 이번 문제는 정답을 제출할 수 없습니다." : ""
   };
 
-  if (!isHost && !isAdmin) {
-    publicGame.guesses = game.guesses.map((guess) => ({ ...guess, answer: guess.correct ? "정답" : guess.answer }));
-  }
+  publicGame.guesses = [];
 
   return {
     me: sanitizeUser(currentUser),
@@ -365,6 +366,24 @@ async function addChatMessage(user, text) {
       message
     }
   });
+}
+
+async function submitChatMessage(user, text) {
+  const message = String(text || "").trim();
+  await addChatMessage(user, message);
+
+  const game = await getGame();
+  const isGuessLike =
+    game.phase === "active" &&
+    user.status === "playing" &&
+    user.id !== game.hostId &&
+    !(game.answerBanUserId === user.id && game.answerBanRoundId === game.roundId) &&
+    normalizeChosung(message) === normalizeAnswer(game.chosung);
+
+  if (!isGuessLike) return { attempted: false, correct: false };
+
+  const correct = await submitGuess(user, message);
+  return { attempted: true, correct };
 }
 
 async function updateUserStatus(targetId, status) {
@@ -550,6 +569,7 @@ module.exports = {
   publicState,
   requestReissue,
   reissueSameHost,
+  submitChatMessage,
   submitGuess,
   syncAfterStatusChange,
   transferHostWithPenalty,

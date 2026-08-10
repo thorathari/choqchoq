@@ -637,6 +637,28 @@ async function handleApi(req, res) {
         createdAt: new Date().toISOString()
       });
       store.chatMessages = store.chatMessages.slice(-200);
+      const isGuessLike =
+        store.game.phase === "active" &&
+        user.status === "playing" &&
+        user.id !== store.game.hostId &&
+        !(store.game.answerBanUserId === user.id && store.game.answerBanRoundId === store.game.roundId) &&
+        normalizeAnswer(toChosung(text)) === normalizeAnswer(store.game.chosung);
+
+      if (isGuessLike) {
+        const correct = normalizeAnswer(text) === normalizeAnswer(store.game.answer);
+        store.game.guesses.push({
+          id: randomId("guess"),
+          userId: user.id,
+          nickname: user.nickname,
+          answer: text,
+          correct,
+          createdAt: new Date().toISOString()
+        });
+        store.game.lastGuessDeadlineAt = Date.now() + 60 * 1000;
+        store.game.firstGuessDeadlineAt = null;
+        if (correct) finishRoundWithWinner(user);
+        else scheduleTimers();
+      }
       saveStore();
       broadcastState();
       sendJson(res, 200, { ok: true });
