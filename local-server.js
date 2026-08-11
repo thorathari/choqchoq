@@ -18,6 +18,7 @@ const SCORE_TYPES = {
 };
 
 const HOST_QUESTION_TIMEOUT_MS = 3 * 60 * 1000;
+const PRESENCE_TIMEOUT_MS = 30 * 1000;
 
 let store = loadStore();
 let sessions = new Map();
@@ -330,6 +331,32 @@ function syncAfterStatusChangeLocal(target, status) {
   }
 }
 
+function touchPresenceLocal(user) {
+  const previousStatus = user.status;
+  user.status = user.status === "away" ? "watching" : user.status;
+  user.updatedAt = new Date().toISOString();
+  if (previousStatus !== user.status) {
+    syncAfterStatusChangeLocal(user, user.status);
+    return;
+  }
+  saveStore();
+}
+
+function expireStalePresenceLocal() {
+  const threshold = Date.now() - PRESENCE_TIMEOUT_MS;
+  const staleUsers = store.users.filter((user) => {
+    if (user.status === "away") return false;
+    const seenAt = user.updatedAt ? new Date(user.updatedAt).getTime() : 0;
+    return !seenAt || seenAt < threshold;
+  });
+
+  for (const user of staleUsers) {
+    user.status = "away";
+    user.updatedAt = new Date().toISOString();
+    syncAfterStatusChangeLocal(user, "away");
+  }
+}
+
 function handleCountdownComplete() {
   const players = playingUsers();
   if (players.length < 2) {
@@ -438,6 +465,8 @@ function transferHostWithPenalty(host) {
 }
 
 function publicState(currentUser = null) {
+  expireStalePresenceLocal();
+  if (currentUser) currentUser = store.users.find((user) => user.id === currentUser.id) || null;
   const host = store.users.find((user) => user.id === store.game.hostId) || null;
   const players = playingUsers();
   const isHost = currentUser && currentUser.id === store.game.hostId;
@@ -568,6 +597,7 @@ async function handleApi(req, res) {
       if (store.users.some((user) => user.nickname === nickname)) throw new Error("이미 사용 중인 닉네임입니다.");
 
       const { salt, hash } = hashPassword(password);
+      const now = new Date().toISOString();
       const user = {
         id: randomId("user"),
         username,
@@ -576,7 +606,8 @@ async function handleApi(req, res) {
         salt,
         role: store.users.length === 0 ? "admin" : "user",
         status: "watching",
-        createdAt: new Date().toISOString()
+        createdAt: now,
+        updatedAt: now
       };
       store.users.push(user);
       saveStore();
@@ -594,6 +625,7 @@ async function handleApi(req, res) {
       const user = store.users.find((item) => item.username.toLowerCase() === username.toLowerCase());
       if (!user || !verifyPassword(password, user)) throw new Error("아이디 또는 비밀번호가 올바르지 않습니다.");
       user.status = "watching";
+      user.updatedAt = new Date().toISOString();
       syncAfterStatusChangeLocal(user, "watching");
       const sid = randomId("sid");
       sessions.set(sid, user.id);
@@ -607,9 +639,18 @@ async function handleApi(req, res) {
       if (sid) sessions.delete(sid);
       if (user) {
         user.status = "away";
+        user.updatedAt = new Date().toISOString();
         syncAfterStatusChangeLocal(user, "away");
       }
       sendJson(res, 200, { ok: true }, ["sid=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0"]);
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/presence") {
+      const user = requireUser(req, res);
+      if (!user) return;
+      touchPresenceLocal(user);
+      sendJson(res, 200, { ok: true });
       return;
     }
 
@@ -625,6 +666,7 @@ async function handleApi(req, res) {
       const target = store.users.find((user) => user.id === targetId);
       if (!target) throw new Error("사용자를 찾을 수 없습니다.");
       target.status = status;
+      target.updatedAt = new Date().toISOString();
       syncAfterStatusChangeLocal(target, status);
       sendJson(res, 200, { ok: true });
       return;

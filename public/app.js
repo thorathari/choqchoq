@@ -1,5 +1,6 @@
 let state = null;
 let statePollHandle = null;
+let presenceHandle = null;
 let authMode = "login";
 let rankMode = "day";
 let tickHandle = null;
@@ -15,6 +16,7 @@ let chatDraftSelectionEnd = null;
 let chatDraftFocused = false;
 let isChatScrolledAway = false;
 const pendingChatMessages = [];
+const PRESENCE_INTERVAL_MS = 10000;
 
 const app = document.querySelector("#app");
 const APP_NAME = "촠촠";
@@ -121,13 +123,27 @@ function didCriticalGameSurfaceChange(previous, next) {
 }
 
 function connectEvents() {
-  if (statePollHandle) return;
-  statePollHandle = setInterval(loadState, 800);
+  if (!statePollHandle) statePollHandle = setInterval(loadState, 800);
+  if (!presenceHandle) {
+    sendPresence();
+    presenceHandle = setInterval(sendPresence, PRESENCE_INTERVAL_MS);
+  }
 }
 
 function disconnectEvents() {
   if (statePollHandle) clearInterval(statePollHandle);
+  if (presenceHandle) clearInterval(presenceHandle);
   statePollHandle = null;
+  presenceHandle = null;
+}
+
+async function sendPresence() {
+  if (!state?.me || document.visibilityState !== "visible") return;
+  try {
+    await api("/api/presence");
+  } catch {
+    // Presence should never interrupt the game UI.
+  }
 }
 
 function html(strings, ...values) {
@@ -867,6 +883,13 @@ app.addEventListener("submit", async (event) => {
     alert(error.message);
   } finally {
     isSubmitting = false;
+  }
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    sendPresence();
+    loadState({ forceRender: true });
   }
 });
 

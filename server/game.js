@@ -13,6 +13,7 @@ const SCORE_TYPES = {
 };
 
 const HOST_QUESTION_TIMEOUT_MS = 3 * 60 * 1000;
+const PRESENCE_TIMEOUT_MS = 30 * 1000;
 
 function nowIso() {
   return new Date().toISOString();
@@ -305,12 +306,14 @@ async function advanceGame(game, users) {
 }
 
 async function getFreshContext(currentUser = null) {
+  await expireStalePresence();
   const users = await getUsers();
+  const freshCurrentUser = currentUser ? users.find((user) => user.id === currentUser.id) || null : null;
   let game = await getGame();
   if (await advanceGame(game, users)) {
     game = await saveGame(game);
   }
-  return { users, game, currentUser };
+  return { users, game, currentUser: freshCurrentUser };
 }
 
 function scoreFor(events, userId, from = null, to = null) {
@@ -347,7 +350,9 @@ function rankings(kind, users, events) {
 }
 
 async function publicState(currentUser = null) {
-  const { users, game } = await getFreshContext(currentUser);
+  const context = await getFreshContext(currentUser);
+  const { users, game } = context;
+  currentUser = context.currentUser;
   const [events, chatMessages] = await Promise.all([getScoreEvents(), getChatMessages()]);
   const host = users.find((user) => user.id === game.hostId) || null;
   const players = playingUsers(users);
@@ -430,6 +435,39 @@ async function updateUserStatus(targetId, status) {
     }
   });
   return rows[0] || null;
+}
+
+async function touchUserPresence(targetId) {
+  const users = await supabaseRequest(`choq_users?id=eq.${encodeURIComponent(targetId)}&select=id,status&limit=1`, { prefer: "" });
+  const user = users?.[0] || null;
+  if (!user) return null;
+
+  const status = user.status === "away" ? "watching" : user.status;
+  const rows = await supabaseRequest(`choq_users?id=eq.${encodeURIComponent(targetId)}`, {
+    method: "PATCH",
+    body: {
+      status,
+      updated_at: nowIso()
+    }
+  });
+
+  if (user.status !== status) await syncAfterStatusChange(targetId, status);
+  return rows[0] || null;
+}
+
+async function expireStalePresence() {
+  const threshold = Date.now() - PRESENCE_TIMEOUT_MS;
+  const users = await getUsers();
+  const staleUsers = users.filter((user) => {
+    if (user.status === "away") return false;
+    const seenAt = toMs(user.updated_at);
+    return !seenAt || seenAt < threshold;
+  });
+
+  for (const user of staleUsers) {
+    await updateUserStatus(user.id, "away");
+    await syncAfterStatusChange(user.id, "away");
+  }
 }
 
 async function updateUserRole(targetId, role) {
@@ -611,6 +649,7 @@ module.exports = {
   submitChatMessage,
   submitGuess,
   syncAfterStatusChange,
+  touchUserPresence,
   transferHostWithPenalty,
   updateUserRole,
   updateUserStatus

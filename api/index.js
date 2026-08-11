@@ -29,6 +29,7 @@ const {
   submitChatMessage,
   submitGuess,
   syncAfterStatusChange,
+  touchUserPresence,
   transferHostWithPenalty,
   updateUserRole,
   updateUserStatus
@@ -80,6 +81,7 @@ async function register(req, res) {
 
   const users = await supabaseRequest("choq_users?select=id", { prefer: "" });
   const { salt, hash } = hashPassword(password);
+  const now = new Date().toISOString();
   const created = await supabaseRequest("choq_users", {
     method: "POST",
     body: {
@@ -90,7 +92,8 @@ async function register(req, res) {
       password_salt: salt,
       role: users.length === 0 ? "admin" : "user",
       status: "watching",
-      last_login_at: new Date().toISOString()
+      last_login_at: now,
+      updated_at: now
     }
   });
 
@@ -103,6 +106,7 @@ async function login(req, res) {
   if (!requireMethod(req, res, "POST")) return;
   const { username, password } = await readJson(req);
   const user = await getUserByUsername(username);
+  const now = new Date().toISOString();
 
   if (!user || !verifyPassword(password, user.password_salt, user.password_hash)) {
     sendJson(res, 401, { error: "아이디 또는 비밀번호가 올바르지 않습니다." });
@@ -113,8 +117,8 @@ async function login(req, res) {
     method: "PATCH",
     body: {
       status: "watching",
-      last_login_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      last_login_at: now,
+      updated_at: now
     }
   });
   const loggedInUser = updated[0] || user;
@@ -157,6 +161,15 @@ module.exports = async function handler(req, res) {
         await syncAfterStatusChange(session.id, "away");
       }
       clearSessionCookie(res);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (path === "presence") {
+      if (!requireMethod(req, res, "POST")) return;
+      const user = await requireUser(req, res);
+      if (!user) return;
+      await touchUserPresence(user.id);
       sendJson(res, 200, { ok: true });
       return;
     }
