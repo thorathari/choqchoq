@@ -755,6 +755,26 @@ select:focus {
   gap: 2px;
 }
 
+.chat-system-message {
+  display: flex;
+  justify-content: center;
+  padding: 3px 0;
+}
+
+.chat-system-message span {
+  max-width: min(92%, 420px);
+  padding: 6px 10px;
+  border: 1px solid rgba(240, 195, 106, 0.42);
+  border-radius: 999px;
+  background: rgba(240, 195, 106, 0.14);
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.35;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
 .chat-message.mine {
   justify-items: end;
 }

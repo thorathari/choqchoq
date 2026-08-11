@@ -462,7 +462,12 @@ function chatPanel() {
     message.text === pending.text &&
     Math.abs(new Date(message.createdAt || 0).getTime() - pending.createdAtMs) < 15000
   )));
-  const messages = [...serverMessages, ...visiblePendingMessages];
+  const answerReveal = answerRevealMessage();
+  const messages = [
+    ...serverMessages,
+    ...visiblePendingMessages,
+    ...(answerReveal ? [answerReveal] : [])
+  ];
   const placeholder = state.game.canGuess ? "대화 또는 정답 입력" : "메시지 입력";
   return html`
     <section class="panel chat-panel">
@@ -483,7 +488,25 @@ function chatPanel() {
   `;
 }
 
+function answerRevealMessage() {
+  const text = state.game.lastSystemMessage || "";
+  if (!text.includes("정답은")) return null;
+  return {
+    id: `answer-reveal-${state.game.roundId}`,
+    system: true,
+    text
+  };
+}
+
 function chatMessage(message) {
+  if (message.system) {
+    return html`
+      <div class="chat-system-message">
+        <span>${escapeHtml(message.text)}</span>
+      </div>
+    `;
+  }
+
   const mine = state.me && message.userId === state.me.id;
   const meta = html`
     ${mine ? "" : `<strong>${escapeHtml(message.nickname)}</strong>`}

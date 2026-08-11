@@ -423,6 +423,7 @@ function handleHostQuestionDeadline() {
 function finishRoundWithWinner(winner) {
   const previousHostId = store.game.hostId;
   const previousRoundId = store.game.roundId;
+  const correctAnswer = store.game.answer;
   addScore(winner.id, SCORE_TYPES.ANSWER_CORRECT, 1, { reason: "correct_answer" });
   if (previousHostId) addScore(previousHostId, SCORE_TYPES.QUESTION_SOLVED, 1, { solvedBy: winner.id });
 
@@ -443,7 +444,7 @@ function finishRoundWithWinner(winner) {
     store.game.answerBanUserId = winner.id;
   }
 
-  setHost(winner.id, `${winner.nickname}님이 정답을 맞혀 다음 출제자가 되었습니다.`);
+  setHost(winner.id, `${winner.nickname}님 정답! 정답은 "${correctAnswer}"입니다. 다음 출제자가 되었습니다.`);
 }
 
 function reissueSameHost(message) {

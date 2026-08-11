@@ -562,6 +562,7 @@ async function submitGuess(user, answer) {
   if (correct) {
     const previousHostId = game.hostId;
     const previousRoundId = game.roundId;
+    const correctAnswer = game.answer;
     await addScore(user.id, SCORE_TYPES.ANSWER_CORRECT, 1, game.roundId, { reason: "correct_answer" });
     if (previousHostId) await addScore(previousHostId, SCORE_TYPES.QUESTION_SOLVED, 1, game.roundId, { solvedBy: user.id });
 
@@ -581,7 +582,7 @@ async function submitGuess(user, answer) {
       game.answerBanUserId = user.id;
     }
 
-    setHost(game, user.id, `${user.nickname}님이 정답을 맞혀 다음 출제자가 되었습니다.`);
+    setHost(game, user.id, `${user.nickname}님 정답! 정답은 "${correctAnswer}"입니다. 다음 출제자가 되었습니다.`);
   }
 
   await saveGame(game);
