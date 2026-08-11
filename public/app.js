@@ -507,10 +507,6 @@ function usersPanel() {
         <span class="badge playing">${state.game.playerCount}명 참여</span>
       </div>
       <div class="panel-body users-body">
-        <div class="my-status-row">
-          <span class="muted">내 상태</span>
-          ${statusButtons(state.me.status, "self-status")}
-        </div>
         <ul class="user-list">
           ${state.users.map(userItem).join("")}
         </ul>
@@ -522,7 +518,13 @@ function usersPanel() {
 function userItem(user) {
   const isHost = user.id === state.game.hostId;
   const isBan = user.id === state.game.answerBanUserId;
+  const isMe = user.id === state.me.id;
   const canAdmin = state.me.role === "admin";
+  const controls = canAdmin
+    ? statusButtons(user.status, "admin-status", user.id)
+    : isMe
+      ? statusButtons(user.status, "self-status")
+      : "";
   return html`
     <li class="user-item">
       <div class="user-main">
@@ -536,9 +538,7 @@ function userItem(user) {
           </div>
         </div>
       </div>
-      <div class="user-controls">
-        ${canAdmin ? statusButtons(user.status, "admin-status", user.id) : ""}
-      </div>
+      ${controls ? `<div class="user-controls">${controls}</div>` : ""}
     </li>
   `;
 }

@@ -713,27 +713,6 @@ select:focus {
   font-size: 11px;
 }
 
-.my-status-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 8px;
-  align-items: center;
-  padding: 7px 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-2);
-}
-
-.my-status-row .muted {
-  font-size: 12px;
-  font-weight: 750;
-  user-select: none;
-}
-
-.my-status-row .status-buttons {
-  justify-self: end;
-}
-
 .tabs button,
 .rank-tabs button,
 .category,
