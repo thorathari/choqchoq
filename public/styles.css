@@ -1,5 +1,6 @@
 :root {
   color-scheme: light;
+  --app-vvh: 100vh;
   --bg: #edf2ff;
   --bg-2: #f8fafc;
   --panel: rgba(255, 255, 255, 0.92);
@@ -879,6 +880,7 @@ select:focus {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
+  scroll-margin-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
 .scroll-bottom-button {
@@ -1143,6 +1145,19 @@ select:focus {
   .chat-body {
     height: clamp(340px, 50vh, 540px);
     grid-template-rows: minmax(250px, 1fr) auto;
+  }
+
+  body.chat-keyboard-open .chat-panel {
+    min-height: 0;
+  }
+
+  body.chat-keyboard-open .chat-body {
+    height: clamp(220px, calc(var(--app-vvh) - 180px), 430px);
+    grid-template-rows: minmax(150px, 1fr) auto;
+  }
+
+  body.chat-keyboard-open .chat-form {
+    padding-bottom: max(2px, env(safe-area-inset-bottom));
   }
 
   .chat-bubble-row {

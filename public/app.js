@@ -21,6 +21,7 @@ let chatDraftFocused = false;
 let isChatScrolledAway = false;
 let chatContextMenu = null;
 let chatContextMessageId = "";
+let chatKeyboardAdjustHandle = null;
 const pendingChatMessages = [];
 const PRESENCE_INTERVAL_MS = 10000;
 const STATE_POLL_INTERVAL_MS = 800;
@@ -48,6 +49,7 @@ function applyTheme() {
 }
 
 applyTheme();
+updateVisualViewportHeight();
 
 async function api(path, body = {}) {
   const response = await fetch(path, {
@@ -794,12 +796,44 @@ function focusChatInput() {
   if (input) {
     chatDraftFocused = true;
     input.focus({ preventScroll: true });
+    scheduleChatInputViewportAdjust();
   }
 }
 
 function focusQuestionCategory() {
   const input = document.querySelector('.form[data-form="question"] input[name="category"]');
   if (input) input.focus({ preventScroll: true });
+}
+
+function updateVisualViewportHeight() {
+  const viewport = window.visualViewport;
+  const height = viewport?.height || window.innerHeight;
+  document.documentElement.style.setProperty("--app-vvh", `${Math.round(height)}px`);
+}
+
+function setChatKeyboardMode(enabled) {
+  document.body.classList.toggle("chat-keyboard-open", enabled);
+  updateVisualViewportHeight();
+}
+
+function scheduleChatInputViewportAdjust(delay = 80) {
+  if (chatKeyboardAdjustHandle) clearTimeout(chatKeyboardAdjustHandle);
+  chatKeyboardAdjustHandle = setTimeout(() => {
+    chatKeyboardAdjustHandle = null;
+    keepChatInputAboveKeyboard();
+  }, delay);
+}
+
+function keepChatInputAboveKeyboard() {
+  if (!chatDraftFocused) return;
+  const input = document.querySelector('.chat-form input[name="text"]');
+  if (!input) return;
+
+  input.scrollIntoView({ block: "end", inline: "nearest" });
+  const viewport = window.visualViewport;
+  const viewportBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+  const gap = viewportBottom - input.getBoundingClientRect().bottom;
+  if (gap < 10) window.scrollBy({ top: 10 - gap, left: 0, behavior: "auto" });
 }
 
 function getChatDraft() {
@@ -1039,6 +1073,11 @@ app.addEventListener("focusin", (event) => {
     chatDraftFocused = true;
     suppressChatFocusUntil = 0;
     syncChatDraftFromInput(event.target);
+    setChatKeyboardMode(true);
+    scheduleChatInputViewportAdjust(80);
+    setTimeout(() => {
+      if (chatDraftFocused) keepChatInputAboveKeyboard();
+    }, 280);
   }
 });
 
@@ -1046,6 +1085,7 @@ app.addEventListener("focusout", (event) => {
   if (event.target.closest?.(".chat-form")) {
     chatDraftFocused = false;
     syncChatDraftFromInput(event.target);
+    setChatKeyboardMode(false);
   }
   if (!isRendering && event.target.closest?.(".chat-form")) {
     suppressChatFocusUntil = Math.max(suppressChatFocusUntil, Date.now() + 800);
@@ -1147,9 +1187,26 @@ app.addEventListener("submit", async (event) => {
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
+    updateVisualViewportHeight();
     sendPresence();
     loadState({ forceRender: true });
   }
 });
+
+window.addEventListener("resize", () => {
+  updateVisualViewportHeight();
+  if (chatDraftFocused) scheduleChatInputViewportAdjust(60);
+});
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", () => {
+    updateVisualViewportHeight();
+    if (chatDraftFocused) scheduleChatInputViewportAdjust(60);
+  });
+  window.visualViewport.addEventListener("scroll", () => {
+    updateVisualViewportHeight();
+    if (chatDraftFocused) scheduleChatInputViewportAdjust(60);
+  });
+}
 
 loadState();
