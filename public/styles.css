@@ -777,12 +777,6 @@ select:focus {
   justify-items: end;
 }
 
-.chat-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .chat-meta {
   display: flex;
   align-items: center;
@@ -825,24 +819,38 @@ select:focus {
   max-width: 100%;
 }
 
-.chat-delete-button {
-  width: 24px;
-  min-width: 24px;
-  height: 24px;
-  min-height: 24px;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(220, 38, 38, 0.22);
-  background: rgba(220, 38, 38, 0.08);
-  color: var(--danger);
-  font-size: 15px;
-  line-height: 1;
-  opacity: 0.64;
+.chat-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 128px;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
 }
 
-.chat-message:hover .chat-delete-button,
-.chat-delete-button:focus-visible {
-  opacity: 1;
+.chat-context-menu[hidden] {
+  display: none;
+}
+
+.chat-context-menu button {
+  width: 100%;
+  min-height: 32px;
+  justify-content: flex-start;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+}
+
+.chat-context-menu button:hover,
+.chat-context-menu button:focus-visible {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--danger);
 }
 
 .chat-message.mine .chat-bubble {

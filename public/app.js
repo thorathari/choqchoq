@@ -19,6 +19,8 @@ let chatDraftSelectionStart = null;
 let chatDraftSelectionEnd = null;
 let chatDraftFocused = false;
 let isChatScrolledAway = false;
+let chatContextMenu = null;
+let chatContextMessageId = "";
 const pendingChatMessages = [];
 const PRESENCE_INTERVAL_MS = 10000;
 const STATE_POLL_INTERVAL_MS = 800;
@@ -547,14 +549,10 @@ function chatPanel() {
     ...visiblePendingMessages
   ];
   const placeholder = state.game.canGuess ? "대화 또는 정답 입력" : "메시지 입력";
-  const canModerateChat = state.me?.role === "admin";
   return html`
     <section class="panel chat-panel">
       <div class="panel-header">
         <h2>대화</h2>
-        <div class="chat-header-actions">
-          ${canModerateChat && messages.length ? `<button class="small-button danger-button" type="button" data-action="chat-clear">대화 초기화</button>` : ""}
-        </div>
       </div>
       <div class="panel-body chat-body">
         <div class="chat-list">
@@ -572,7 +570,6 @@ function chatPanel() {
 
 function chatMessage(message) {
   const mine = state.me && message.userId === state.me.id;
-  const canDelete = state.me?.role === "admin" && !message.pending && message.id;
   const meta = html`
     ${mine ? "" : `<strong>${escapeHtml(message.nickname)}</strong>`}
     ${message.role === "admin" ? adminCrown() : ""}
@@ -580,11 +577,10 @@ function chatMessage(message) {
   `;
   const showMeta = meta.trim().length > 0;
   return html`
-    <div class="chat-message ${mine ? "mine" : ""} ${message.pending ? "pending" : ""}">
+    <div class="chat-message ${mine ? "mine" : ""} ${message.pending ? "pending" : ""}" ${!message.pending && message.id ? `data-message-id="${escapeHtml(message.id)}"` : ""}>
       ${showMeta ? `<div class="chat-meta ${mine ? "mine-meta" : ""}">${meta}</div>` : ""}
       <div class="chat-bubble-row ${mine ? "mine" : ""}">
         <div class="chat-bubble">${escapeHtml(message.text)}</div>
-        ${canDelete ? `<button class="chat-delete-button" type="button" data-action="chat-delete" data-message-id="${escapeHtml(message.id)}" aria-label="메시지 삭제">×</button>` : ""}
       </div>
     </div>
   `;
@@ -842,7 +838,53 @@ function scrollChatToBottom() {
   updateChatBottomButton();
 }
 
+function ensureChatContextMenu() {
+  if (chatContextMenu) return chatContextMenu;
+  chatContextMenu = document.createElement("div");
+  chatContextMenu.className = "chat-context-menu";
+  chatContextMenu.hidden = true;
+  document.body.appendChild(chatContextMenu);
+  return chatContextMenu;
+}
+
+function hideChatContextMenu() {
+  if (!chatContextMenu) return;
+  chatContextMenu.hidden = true;
+  chatContextMessageId = "";
+}
+
+function showChatContextMenu(event, type, messageId = "") {
+  if (state?.me?.role !== "admin") return;
+  event.preventDefault();
+  const menu = ensureChatContextMenu();
+  chatContextMessageId = messageId;
+  menu.innerHTML = type === "message"
+    ? `<button type="button" data-chat-menu-action="delete">대화 삭제</button>`
+    : `<button type="button" data-chat-menu-action="clear">대화 초기화</button>`;
+  menu.hidden = false;
+
+  const padding = 8;
+  const rect = menu.getBoundingClientRect();
+  const left = Math.min(event.clientX, window.innerWidth - rect.width - padding);
+  const top = Math.min(event.clientY, window.innerHeight - rect.height - padding);
+  menu.style.left = `${Math.max(padding, left)}px`;
+  menu.style.top = `${Math.max(padding, top)}px`;
+}
+
+async function deleteChatMessageFromMenu() {
+  if (!chatContextMessageId) return;
+  if (!confirm("이 메시지를 삭제할까요?")) return;
+  applyStatePayload(await api("/api/admin/chat/delete", { messageId: chatContextMessageId }), { forceChatBottom: false });
+}
+
+async function clearChatMessagesFromMenu() {
+  if (!confirm("모든 대화를 초기화할까요?")) return;
+  pendingChatMessages.length = 0;
+  applyStatePayload(await api("/api/admin/chat/clear"), { forceChatBottom: true });
+}
+
 app.addEventListener("click", async (event) => {
+  hideChatContextMenu();
   const modeButton = event.target.closest("[data-auth-mode]");
   if (modeButton) {
     authMode = modeButton.dataset.authMode;
@@ -885,17 +927,6 @@ app.addEventListener("click", async (event) => {
     if (action === "chat-bottom") {
       scrollChatToBottom();
     }
-    if (action === "chat-delete") {
-      if (confirm("이 메시지를 삭제할까요?")) {
-        applyStatePayload(await api("/api/admin/chat/delete", { messageId: actionTarget.dataset.messageId }), { forceChatBottom: false });
-      }
-    }
-    if (action === "chat-clear") {
-      if (confirm("모든 대화를 초기화할까요?")) {
-        pendingChatMessages.length = 0;
-        applyStatePayload(await api("/api/admin/chat/clear"), { forceChatBottom: true });
-      }
-    }
     if (action === "self-status") {
       applyStatePayload(await api("/api/status", { status: actionTarget.dataset.status }));
     }
@@ -906,6 +937,44 @@ app.addEventListener("click", async (event) => {
     alert(error.message);
   }
 });
+
+document.addEventListener("contextmenu", (event) => {
+  if (state?.me?.role !== "admin") return;
+  const message = event.target.closest?.(".chat-message[data-message-id]");
+  if (message) {
+    showChatContextMenu(event, "message", message.dataset.messageId);
+    return;
+  }
+
+  const chatList = event.target.closest?.(".chat-list");
+  if (chatList) {
+    showChatContextMenu(event, "chat");
+  }
+});
+
+document.addEventListener("click", async (event) => {
+  const menuAction = event.target.closest?.("[data-chat-menu-action]")?.dataset.chatMenuAction;
+  if (!menuAction) {
+    if (!event.target.closest?.(".chat-context-menu")) hideChatContextMenu();
+    return;
+  }
+
+  try {
+    if (menuAction === "delete") await deleteChatMessageFromMenu();
+    if (menuAction === "clear") await clearChatMessagesFromMenu();
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    hideChatContextMenu();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") hideChatContextMenu();
+});
+
+window.addEventListener("resize", hideChatContextMenu);
+window.addEventListener("scroll", hideChatContextMenu, true);
 
 app.addEventListener("change", async (event) => {
   const target = event.target;
