@@ -940,8 +940,9 @@ app.addEventListener("click", async (event) => {
 
 document.addEventListener("contextmenu", (event) => {
   if (state?.me?.role !== "admin") return;
-  const message = event.target.closest?.(".chat-message[data-message-id]");
-  if (message) {
+  const bubble = event.target.closest?.(".chat-bubble");
+  const message = bubble?.closest?.(".chat-message[data-message-id]");
+  if (bubble && message) {
     showChatContextMenu(event, "message", message.dataset.messageId);
     return;
   }

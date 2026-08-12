@@ -771,6 +771,7 @@ select:focus {
   display: grid;
   justify-items: start;
   gap: 2px;
+  user-select: none;
 }
 
 .chat-message.mine {
@@ -802,6 +803,7 @@ select:focus {
   overflow-wrap: anywhere;
   font-size: 13px;
   line-height: 1.34;
+  user-select: none;
 }
 
 .chat-bubble-row {
