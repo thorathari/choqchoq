@@ -454,8 +454,10 @@ function hostingView(isHost) {
   if (!isHost) {
     return html`
       <div class="problem">
-        ${reveal ? roundAnswerReveal(reveal) : `<div class="chosung">출제 준비 중</div>`}
-        <p class="muted">${reveal ? reveal.guide : "출제자가 분류와 정답을 입력하고 있습니다."}</p>
+        ${reveal ? roundAnswerReveal(reveal) : `
+          <div class="chosung">출제 준비 중</div>
+          <p class="muted">출제자가 분류와 정답을 입력하고 있습니다.</p>
+        `}
       </div>
     `;
   }
