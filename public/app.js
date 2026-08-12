@@ -522,12 +522,21 @@ function hostingView(isHost) {
 
 function answerRevealInfo() {
   const text = state.game.lastSystemMessage || "";
-  const match = text.match(/^(.+?)님 정답! 정답은 "(.+)"입니다\. 다음 출제자가 되었습니다\.$/);
-  if (!match) return null;
+  const correctMatch = text.match(/^(.+?)님 정답! 정답은 "(.+)"입니다\. 다음 출제자가 되었습니다\.$/);
+  if (correctMatch) {
+    return {
+      winner: correctMatch[1],
+      answer: correctMatch[2],
+      guide: `${correctMatch[1]}님이 정답을 맞혀 출제자가 되었습니다.`
+    };
+  }
+
+  const timeoutMatch = text.match(/^아무도 정답을 맞히지 못했습니다\. 정답은 "(.+)"입니다\./);
+  if (!timeoutMatch) return null;
   return {
-    winner: match[1],
-    answer: match[2],
-    guide: `${match[1]}님이 정답을 맞혀 출제자가 되었습니다.`
+    winner: "",
+    answer: timeoutMatch[1],
+    guide: "아무도 정답을 맞히지 못해 정답이 공개되었습니다."
   };
 }
 
@@ -575,11 +584,15 @@ function hostTools() {
 function guessTools() {
   const game = state.game;
   const alreadyRequested = game.reissueRequests.includes(state.me.id);
+  const alreadyExtended = (game.timeExtensionRequests || []).includes(state.me.id);
   const reissueDisabled = alreadyRequested || state.me.status !== "playing";
+  const extensionDisabled = alreadyExtended || state.me.status !== "playing";
   const reissueButton = html`
     <div class="actions participant-round-actions">
       <span class="badge reissue-count">요청 ${game.reissueRequestCount}/3</span>
       <button class="small-button" type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>${alreadyRequested ? "요청 완료" : "리문요청"}</button>
+      <span class="badge reissue-count">연장 ${game.timeExtensionRequestCount || 0}/${game.timeExtensionRequestTarget || 1}</span>
+      <button class="small-button" type="button" data-action="time-extension-request" ${extensionDisabled ? "disabled" : ""}>${alreadyExtended ? "요청 완료" : "시간연장요청"}</button>
     </div>
   `;
 
@@ -1079,6 +1092,9 @@ app.addEventListener("click", async (event) => {
     }
     if (action === "reissue-request") {
       applyStatePayload(await api("/api/reissue-request"));
+    }
+    if (action === "time-extension-request") {
+      applyStatePayload(await api("/api/time-extension-request"));
     }
     if (action === "chat-bottom") {
       scrollChatToBottom();

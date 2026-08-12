@@ -44,6 +44,7 @@ function defaultStore() {
       hints: [],
       guesses: [],
       reissueRequests: [],
+      timeExtensionRequests: [],
       countdownEndsAt: null,
       activeStartedAt: null,
       firstGuessDeadlineAt: null,
@@ -261,6 +262,7 @@ function resetRoundFields() {
   store.game.hints = [];
   store.game.guesses = [];
   store.game.reissueRequests = [];
+  store.game.timeExtensionRequests = [];
   store.game.countdownEndsAt = null;
   store.game.activeStartedAt = null;
   store.game.firstGuessDeadlineAt = null;
@@ -397,16 +399,26 @@ function nextHostCandidates(excludeUserId = null) {
   return playingUsers().filter((user) => user.id !== excludeUserId);
 }
 
+function answerParticipants() {
+  return playingUsers().filter((user) => user.id !== store.game.hostId);
+}
+
+function requestTargetFor(candidates) {
+  return Math.max(1, Math.min(3, candidates.length));
+}
+
 function handleRoundDeadline() {
   if (store.game.phase !== "active") return;
   const hostId = store.game.hostId;
+  const missedAnswer = store.game.answer;
   const candidates = nextHostCandidates(hostId);
+  addSystemChatMessage(`아무도 정답을 맞히지 못했습니다. 정답: ${missedAnswer}`);
   if (candidates.length < 1) {
-    returnToWaiting("출제권을 넘길 참여자가 없어 대기 상태로 돌아갑니다.");
+    returnToWaiting(`아무도 정답을 맞히지 못했습니다. 정답은 "${missedAnswer}"입니다. 참여자가 부족해 대기 상태로 돌아갑니다.`);
     return;
   }
   const nextHost = chooseRandom(candidates);
-  setHost(nextHost.id, "제한시간 동안 정답이 없어 출제권이 랜덤으로 넘어갔습니다.");
+  setHost(nextHost.id, `아무도 정답을 맞히지 못했습니다. 정답은 "${missedAnswer}"입니다. 출제권이 랜덤으로 넘어갔습니다.`);
 }
 
 function handleHostQuestionDeadline() {
@@ -491,6 +503,7 @@ function publicState(currentUser = null) {
   const isHost = currentUser && currentUser.id === store.game.hostId;
   const isAdmin = currentUser && currentUser.role === "admin";
   const currentRoundBanApplies = currentUser && store.game.answerBanUserId === currentUser.id && store.game.answerBanRoundId === store.game.roundId;
+  const extensionParticipants = answerParticipants();
   const game = {
     ...store.game,
     answer: isHost ? store.game.answer : "",
@@ -498,6 +511,9 @@ function publicState(currentUser = null) {
     serverNow: Date.now(),
     playerCount: players.length,
     reissueRequestCount: store.game.reissueRequests.length,
+    timeExtensionRequests: store.game.timeExtensionRequests || [],
+    timeExtensionRequestCount: (store.game.timeExtensionRequests || []).length,
+    timeExtensionRequestTarget: requestTargetFor(extensionParticipants),
     reissueEnabled: true,
     canGuess:
       !!currentUser &&
@@ -709,6 +725,7 @@ async function handleApi(req, res) {
       store.game.hints = [];
       store.game.guesses = [];
       store.game.reissueRequests = [];
+      store.game.timeExtensionRequests = [];
       store.game.activeStartedAt = Date.now();
       store.game.firstGuessDeadlineAt = Date.now() + 3 * 60 * 1000;
       store.game.lastGuessDeadlineAt = null;
@@ -850,6 +867,32 @@ async function handleApi(req, res) {
         saveStore();
         broadcastState();
       }
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/time-extension-request") {
+      const user = requireUser(req, res);
+      if (!user) return;
+      if (store.game.phase !== "active") throw new Error("진행 중인 문제가 없습니다.");
+      if (user.status !== "playing" || user.id === store.game.hostId) throw new Error("참여자만 시간연장을 요청할 수 있습니다.");
+      store.game.timeExtensionRequests = store.game.timeExtensionRequests || [];
+      if (!store.game.timeExtensionRequests.includes(user.id)) store.game.timeExtensionRequests.push(user.id);
+
+      const target = requestTargetFor(answerParticipants());
+      if (store.game.timeExtensionRequests.length >= target) {
+        const baseDeadline = store.game.lastGuessDeadlineAt || store.game.firstGuessDeadlineAt || Date.now();
+        const nextDeadline = Math.max(Date.now(), baseDeadline) + 60 * 1000;
+        if (store.game.lastGuessDeadlineAt) store.game.lastGuessDeadlineAt = nextDeadline;
+        else store.game.firstGuessDeadlineAt = nextDeadline;
+        store.game.timeExtensionRequests = [];
+        store.game.lastSystemMessage = "시간연장요청이 모여 제한시간이 1분 연장되었습니다.";
+        addSystemChatMessage(`시간연장요청 ${target}명이 모여 제한시간이 1분 연장되었습니다.`);
+      }
+
+      scheduleTimers();
+      saveStore();
+      broadcastState();
       sendJson(res, 200, { ok: true });
       return;
     }

@@ -57,6 +57,7 @@ function defaultGame() {
     hints: [],
     guesses: [],
     reissueRequests: [],
+    timeExtensionRequests: [],
     countdownEndsAt: null,
     activeStartedAt: null,
     firstGuessDeadlineAt: null,
@@ -311,6 +312,7 @@ function resetRoundFields() {
   game.hints = [];
   game.guesses = [];
   game.reissueRequests = [];
+  game.timeExtensionRequests = [];
   game.countdownEndsAt = null;
   game.activeStartedAt = null;
   game.firstGuessDeadlineAt = null;
@@ -336,6 +338,14 @@ function returnToWaiting(message) {
 
 function nextHostCandidates(excludeUserId = null) {
   return playingUsers().filter((user) => user.id !== excludeUserId);
+}
+
+function answerParticipants() {
+  return playingUsers().filter((user) => user.id !== game.hostId);
+}
+
+function requestTargetFor(candidates) {
+  return Math.max(1, Math.min(3, candidates.length));
 }
 
 function maybeStartGame() {
@@ -376,9 +386,11 @@ function advanceGame() {
   if (game.phase === "active") {
     const deadline = game.lastGuessDeadlineAt || game.firstGuessDeadlineAt;
     if (deadline && deadline <= Date.now()) {
+      const missedAnswer = game.answer;
       const nextHost = chooseRandom(nextHostCandidates(game.hostId));
-      if (!nextHost) returnToWaiting("출제권을 넘길 참여자가 없어 대기 상태로 돌아갑니다.");
-      else setHost(nextHost.id, "제한시간 동안 정답이 없어 출제권이 랜덤으로 넘어갔습니다.");
+      addSystemChatMessage(`아무도 정답을 맞히지 못했습니다. 정답: ${missedAnswer}`);
+      if (!nextHost) returnToWaiting(`아무도 정답을 맞히지 못했습니다. 정답은 "${missedAnswer}"입니다. 참여자가 부족해 대기 상태로 돌아갑니다.`);
+      else setHost(nextHost.id, `아무도 정답을 맞히지 못했습니다. 정답은 "${missedAnswer}"입니다. 출제권이 랜덤으로 넘어갔습니다.`);
       changed = true;
     }
   }
@@ -492,6 +504,7 @@ function publicState(currentUser = null) {
   const host = users.find((user) => user.id === game.hostId) || null;
   const isHost = currentUser && currentUser.id === game.hostId;
   const currentRoundBanApplies = currentUser && game.answerBanUserId === currentUser.id && game.answerBanRoundId === game.roundId;
+  const extensionParticipants = answerParticipants();
   const publicGame = {
     ...game,
     answer: isHost ? game.answer : "",
@@ -499,6 +512,9 @@ function publicState(currentUser = null) {
     serverNow: Date.now(),
     playerCount: playingUsers().length,
     reissueRequestCount: game.reissueRequests.length,
+    timeExtensionRequests: game.timeExtensionRequests || [],
+    timeExtensionRequestCount: (game.timeExtensionRequests || []).length,
+    timeExtensionRequestTarget: requestTargetFor(extensionParticipants),
     reissueEnabled: true,
     canGuess:
       !!currentUser &&
@@ -891,6 +907,7 @@ async function handleApi(req, res, pathname) {
     game.hints = [];
     game.guesses = [];
     game.reissueRequests = [];
+    game.timeExtensionRequests = [];
     game.activeStartedAt = Date.now();
     game.firstGuessDeadlineAt = Date.now() + 3 * 60 * 1000;
     game.lastGuessDeadlineAt = null;
@@ -968,6 +985,29 @@ async function handleApi(req, res, pathname) {
       resetRoundFields();
       game.lastSystemMessage = "리문요청 3명이 모여 같은 출제자가 다시 문제를 냅니다.";
     }
+    sendJson(res, 200, { ok: true, state: publicState(user) });
+    return true;
+  }
+
+  if (pathname === "/api/time-extension-request") {
+    const user = await requireUser(req, res, { touch: true });
+    if (!user) return true;
+    if (game.phase !== "active") throw new Error("진행 중인 문제가 없습니다.");
+    if (user.status !== "playing" || user.id === game.hostId) throw new Error("참여자만 시간연장을 요청할 수 있습니다.");
+    game.timeExtensionRequests = game.timeExtensionRequests || [];
+    if (!game.timeExtensionRequests.includes(user.id)) game.timeExtensionRequests.push(user.id);
+
+    const target = requestTargetFor(answerParticipants());
+    if (game.timeExtensionRequests.length >= target) {
+      const baseDeadline = game.lastGuessDeadlineAt || game.firstGuessDeadlineAt || Date.now();
+      const nextDeadline = Math.max(Date.now(), baseDeadline) + 60 * 1000;
+      if (game.lastGuessDeadlineAt) game.lastGuessDeadlineAt = nextDeadline;
+      else game.firstGuessDeadlineAt = nextDeadline;
+      game.timeExtensionRequests = [];
+      game.lastSystemMessage = "시간연장요청이 모여 제한시간이 1분 연장되었습니다.";
+      addSystemChatMessage(`시간연장요청 ${target}명이 모여 제한시간이 1분 연장되었습니다.`);
+    }
+
     sendJson(res, 200, { ok: true, state: publicState(user) });
     return true;
   }

@@ -68,6 +68,7 @@ function dbGameToGame(row) {
     hints: row.hints || [],
     guesses: row.guesses || [],
     reissueRequests: row.reissue_requests || [],
+    timeExtensionRequests: [],
     countdownEndsAt: toMs(row.countdown_ends_at),
     activeStartedAt: toMs(row.active_started_at),
     firstGuessDeadlineAt: toMs(row.first_guess_deadline_at),
@@ -115,6 +116,7 @@ function defaultGame() {
     hints: [],
     guesses: [],
     reissueRequests: [],
+    timeExtensionRequests: [],
     countdownEndsAt: null,
     activeStartedAt: null,
     firstGuessDeadlineAt: null,
@@ -210,6 +212,7 @@ function resetRoundFields(game) {
   game.hints = [];
   game.guesses = [];
   game.reissueRequests = [];
+  game.timeExtensionRequests = [];
   game.countdownEndsAt = null;
   game.activeStartedAt = null;
   game.firstGuessDeadlineAt = null;
@@ -276,12 +279,13 @@ async function advanceGame(game, users) {
   if (game.phase === "active") {
     const deadline = game.lastGuessDeadlineAt || game.firstGuessDeadlineAt;
     if (deadline && deadline <= Date.now()) {
+      const missedAnswer = game.answer;
       const candidates = nextHostCandidates(users, game.hostId);
       if (!candidates.length) {
-        returnToWaiting(game, "출제권을 넘길 참여자가 없어 대기 상태로 돌아갑니다.");
+        returnToWaiting(game, `아무도 정답을 맞히지 못했습니다. 정답은 "${missedAnswer}"입니다. 참여자가 부족해 대기 상태로 돌아갑니다.`);
       } else {
         const nextHost = chooseRandom(candidates);
-        setHost(game, nextHost.id, "제한시간 동안 정답이 없어 출제권이 랜덤으로 넘어갔습니다.");
+        setHost(game, nextHost.id, `아무도 정답을 맞히지 못했습니다. 정답은 "${missedAnswer}"입니다. 출제권이 랜덤으로 넘어갔습니다.`);
       }
       changed = true;
     }
@@ -356,6 +360,7 @@ async function publicState(currentUser = null) {
   const [events, chatMessages] = await Promise.all([getScoreEvents(), getChatMessages()]);
   const host = users.find((user) => user.id === game.hostId) || null;
   const players = playingUsers(users);
+  const extensionParticipants = players.filter((user) => user.id !== game.hostId);
   const isHost = currentUser && currentUser.id === game.hostId;
   const currentRoundBanApplies = currentUser && game.answerBanUserId === currentUser.id && game.answerBanRoundId === game.roundId;
   const publicGame = {
@@ -365,6 +370,9 @@ async function publicState(currentUser = null) {
     serverNow: Date.now(),
     playerCount: players.length,
     reissueRequestCount: game.reissueRequests.length,
+    timeExtensionRequests: game.timeExtensionRequests || [],
+    timeExtensionRequestCount: (game.timeExtensionRequests || []).length,
+    timeExtensionRequestTarget: Math.max(1, Math.min(3, extensionParticipants.length)),
     reissueEnabled: true,
     canGuess:
       !!currentUser &&
@@ -536,6 +544,7 @@ async function createQuestion(user, category, answer) {
   game.hints = [];
   game.guesses = [];
   game.reissueRequests = [];
+  game.timeExtensionRequests = [];
   game.activeStartedAt = Date.now();
   game.firstGuessDeadlineAt = Date.now() + 3 * 60 * 1000;
   game.lastGuessDeadlineAt = null;
