@@ -611,9 +611,9 @@ function userItem(user) {
   const isMe = user.id === state.me.id;
   const canAdmin = state.me.role === "admin";
   const controls = canAdmin
-    ? statusButtons(user.status, "admin-status", user.id)
+    ? statusButtons(user.status, "admin-status", user.id, { disabled: user.status === "away" })
     : isMe
-      ? statusButtons(user.status, "self-status", "", { disabled: user.status === "away" })
+      ? statusButtons(user.status, "self-status")
       : "";
   return html`
     <li class="user-item">

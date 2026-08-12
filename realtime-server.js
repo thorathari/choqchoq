@@ -10,11 +10,12 @@ const PORT = Number(process.env.PORT || 5174);
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, "public");
 const PUBLIC_ROOT = path.resolve(PUBLIC_DIR);
-const CLIENT_TICK_MS = 1000;
 const KEEPALIVE_MS = 25000;
+const PRESENCE_SWEEP_MS = 15000;
 
 const clients = new Map();
 let broadcastQueued = false;
+let deadlineBroadcastTimer = null;
 
 function randomId(prefix) {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
@@ -83,16 +84,43 @@ function serveStatic(req, res) {
   fs.createReadStream(filePath).pipe(res);
 }
 
+function nextDeadlineFromState(state) {
+  const game = state?.game;
+  if (!game) return null;
+  if (game.phase === "countdown") return game.countdownEndsAt;
+  if (game.phase === "hosting") return game.firstGuessDeadlineAt;
+  if (game.phase === "active") return game.lastGuessDeadlineAt || game.firstGuessDeadlineAt;
+  return null;
+}
+
+function scheduleDeadlineBroadcast(state) {
+  if (deadlineBroadcastTimer) clearTimeout(deadlineBroadcastTimer);
+  deadlineBroadcastTimer = null;
+
+  const deadline = nextDeadlineFromState(state);
+  if (!deadline || !clients.size) return;
+
+  const delay = Math.max(0, Number(deadline) - Date.now() + 80);
+  deadlineBroadcastTimer = setTimeout(() => {
+    deadlineBroadcastTimer = null;
+    queueBroadcast();
+  }, delay);
+}
+
 async function writeClientState(client) {
   const user = await getUserById(client.userId);
-  client.res.write(`event: state\ndata: ${JSON.stringify(await publicState(user))}\n\n`);
+  const state = await publicState(user);
+  client.res.write(`event: state\ndata: ${JSON.stringify(state)}\n\n`);
+  return state;
 }
 
 async function broadcastState() {
   const entries = Array.from(clients.entries());
+  let scheduleState = null;
   for (const [id, client] of entries) {
     try {
-      await writeClientState(client);
+      const state = await writeClientState(client);
+      if (!scheduleState) scheduleState = state;
     } catch (error) {
       clients.delete(id);
       try {
@@ -102,6 +130,7 @@ async function broadcastState() {
       }
     }
   }
+  scheduleDeadlineBroadcast(scheduleState);
 }
 
 function queueBroadcast() {
@@ -131,8 +160,15 @@ async function handleEvents(req, res) {
   });
 
   clients.set(id, { res, userId: user.id });
-  await writeClientState({ res, userId: user.id });
-  req.on("close", () => clients.delete(id));
+  const state = await writeClientState({ res, userId: user.id });
+  scheduleDeadlineBroadcast(state);
+  req.on("close", () => {
+    clients.delete(id);
+    if (!clients.size && deadlineBroadcastTimer) {
+      clearTimeout(deadlineBroadcastTimer);
+      deadlineBroadcastTimer = null;
+    }
+  });
 }
 
 async function handleRequest(req, res) {
@@ -186,7 +222,7 @@ setInterval(() => {
 
 setInterval(() => {
   if (clients.size) queueBroadcast();
-}, CLIENT_TICK_MS);
+}, PRESENCE_SWEEP_MS);
 
 server.listen(PORT, () => {
   console.log(`Choqchoq realtime server running at http://localhost:${PORT}`);
