@@ -281,7 +281,12 @@ function touchPresence(user) {
 
 function expireStalePresence() {
   const threshold = Date.now() - PRESENCE_TIMEOUT_MS;
-  const staleUsers = users.filter((user) => user.status !== "away" && (!user.lastSeenAt || user.lastSeenAt < threshold));
+  const connectedUserIds = new Set(Array.from(clients.values()).map((client) => client.userId));
+  const staleUsers = users.filter((user) => (
+    user.status !== "away" &&
+    !connectedUserIds.has(user.id) &&
+    (!user.lastSeenAt || user.lastSeenAt < threshold)
+  ));
   for (const user of staleUsers) {
     user.status = "away";
     user.lastSeenAt = 0;

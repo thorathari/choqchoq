@@ -344,8 +344,10 @@ function touchPresenceLocal(user) {
 
 function expireStalePresenceLocal() {
   const threshold = Date.now() - PRESENCE_TIMEOUT_MS;
+  const connectedUserIds = new Set(Array.from(clients.values()).map((client) => client.userId));
   const staleUsers = store.users.filter((user) => {
     if (user.status === "away") return false;
+    if (connectedUserIds.has(user.id)) return false;
     const seenAt = user.updatedAt ? new Date(user.updatedAt).getTime() : 0;
     return !seenAt || seenAt < threshold;
   });

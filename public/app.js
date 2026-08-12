@@ -86,16 +86,19 @@ function restoreChatScroll(snapshot, forceBottom = false) {
 
 function applyStatePayload(payload, options = {}) {
   if (!payload?.state) return false;
+  const previousState = state;
   forceNextChatScroll = !!options.forceChatBottom;
   state = payload.state;
   render();
   if (options.focusChatInput) requestAnimationFrame(focusChatInput);
+  scheduleRoleFocus(previousState, state);
   if (state.me) connectEvents();
   return true;
 }
 
 function applyStateObject(nextState, options = {}) {
   if (!nextState) return false;
+  const previousState = state;
   const shouldRender = options.forceRender || !isEditingForm() || didCriticalGameSurfaceChange(state, nextState);
   forceNextChatScroll = !!options.forceChatBottom;
   state = nextState;
@@ -106,6 +109,7 @@ function applyStateObject(nextState, options = {}) {
     return false;
   }
   render();
+  scheduleRoleFocus(previousState, state);
   if (state.me) connectEvents();
   return true;
 }
@@ -135,6 +139,39 @@ function didCriticalGameSurfaceChange(previous, next) {
     previous.me.status !== next.me.status ||
     previous.me.role !== next.me.role
   );
+}
+
+function roleFocusTarget(previous, next) {
+  if (!previous?.me || !next?.me || document.visibilityState !== "visible") return "";
+  if (previous.me.id !== next.me.id) return "";
+
+  const becameHost =
+    next.game.phase === "hosting" &&
+    next.game.hostId === next.me.id &&
+    (
+      previous.game.hostId !== next.game.hostId ||
+      previous.game.phase !== "hosting" ||
+      previous.game.roundId !== next.game.roundId
+    );
+  if (becameHost) return "question";
+
+  const becameParticipant =
+    next.me.status === "playing" &&
+    next.game.hostId !== next.me.id &&
+    (
+      previous.me.status !== "playing" ||
+      previous.game.hostId === previous.me.id
+    );
+  return becameParticipant ? "chat" : "";
+}
+
+function scheduleRoleFocus(previous, next) {
+  const target = roleFocusTarget(previous, next);
+  if (!target) return;
+  requestAnimationFrame(() => {
+    if (target === "question") focusQuestionCategory();
+    if (target === "chat") focusChatInput();
+  });
 }
 
 function connectEvents() {
@@ -756,6 +793,11 @@ function focusChatInput() {
     chatDraftFocused = true;
     input.focus({ preventScroll: true });
   }
+}
+
+function focusQuestionCategory() {
+  const input = document.querySelector('.form[data-form="question"] input[name="category"]');
+  if (input) input.focus({ preventScroll: true });
 }
 
 function getChatDraft() {
