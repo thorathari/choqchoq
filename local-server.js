@@ -446,7 +446,23 @@ function finishRoundWithWinner(winner) {
     store.game.answerBanUserId = winner.id;
   }
 
+  addSystemChatMessage(`${winner.nickname}님이 정답을 맞혔습니다. 정답: ${correctAnswer}`);
   setHost(winner.id, `${winner.nickname}님 정답! 정답은 "${correctAnswer}"입니다. 다음 출제자가 되었습니다.`);
+}
+
+function addSystemChatMessage(text) {
+  const message = String(text || "").trim();
+  if (!message) return;
+  store.chatMessages.push({
+    id: randomId("system"),
+    type: "system",
+    userId: null,
+    nickname: "촠촠",
+    role: "system",
+    text: message,
+    createdAt: new Date().toISOString()
+  });
+  store.chatMessages = store.chatMessages.slice(-200);
 }
 
 function reissueSameHost(message) {
@@ -702,6 +718,7 @@ async function handleApi(req, res) {
         store.game.answerBanRoundId = null;
       }
       setSystemMessage(`${user.nickname}님이 문제를 냈습니다.`);
+      addSystemChatMessage(`${user.nickname}님이 문제를 출제하였습니다. 주제: ${category} / 문제: ${store.game.chosung}`);
       scheduleTimers();
       saveStore();
       broadcastState();

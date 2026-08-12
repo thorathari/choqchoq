@@ -611,6 +611,16 @@ function chatPanel() {
 }
 
 function chatMessage(message) {
+  if (message.type === "system" || message.role === "system") {
+    return html`
+      <div class="chat-message system" ${message.id ? `data-message-id="${escapeHtml(message.id)}"` : ""}>
+        <div class="chat-bubble-row system">
+          <div class="chat-bubble system-bubble">${escapeHtml(message.text)}</div>
+        </div>
+      </div>
+    `;
+  }
+
   const mine = state.me && message.userId === state.me.id;
   const meta = html`
     ${mine ? "" : `<strong>${escapeHtml(message.nickname)}</strong>`}

@@ -639,6 +639,23 @@ function addChatMessage(user, text) {
   return chatMessage;
 }
 
+function addSystemChatMessage(text) {
+  const message = String(text || "").trim();
+  if (!message) return null;
+  const chatMessage = {
+    id: randomId("system"),
+    type: "system",
+    userId: null,
+    nickname: "촠촠",
+    role: "system",
+    text: message,
+    createdAt: nowIso()
+  };
+  chatMessages.push(chatMessage);
+  chatMessages = chatMessages.slice(-200);
+  return chatMessage;
+}
+
 async function deleteChatMessage(messageId) {
   const targetId = String(messageId || "");
   const message = chatMessages.find((item) => String(item.id) === targetId || String(item.dbId) === targetId);
@@ -705,6 +722,7 @@ function submitGuess(user, answer) {
       game.answerBanUserId = user.id;
     }
 
+    addSystemChatMessage(`${user.nickname}님이 정답을 맞혔습니다. 정답: ${correctAnswer}`);
     setHost(user.id, `${user.nickname}님 정답! 정답은 "${correctAnswer}"입니다. 다음 출제자가 되었습니다.`);
   }
 
@@ -878,6 +896,7 @@ async function handleApi(req, res, pathname) {
     game.lastGuessDeadlineAt = null;
     game.answerBanRoundId = game.answerBanUserId && game.answerBanUserId !== user.id ? game.roundId : null;
     game.lastSystemMessage = `${user.nickname}님이 문제를 냈습니다.`;
+    addSystemChatMessage(`${user.nickname}님이 문제를 출제하였습니다. 주제: ${category} / 문제: ${game.chosung}`);
     sendJson(res, 200, { ok: true, state: publicState(user) });
     return true;
   }

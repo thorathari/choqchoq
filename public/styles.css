@@ -779,6 +779,11 @@ select:focus {
   justify-items: end;
 }
 
+.chat-message.system {
+  justify-items: center;
+  margin: 3px 0;
+}
+
 .chat-meta {
   display: flex;
   align-items: center;
@@ -818,8 +823,22 @@ select:focus {
   flex-direction: row-reverse;
 }
 
+.chat-bubble-row.system {
+  justify-content: center;
+  max-width: 92%;
+}
+
 .chat-bubble-row .chat-bubble {
   max-width: 100%;
+}
+
+.system-bubble {
+  border-radius: 999px;
+  border-style: dashed;
+  background: rgba(100, 116, 139, 0.08);
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
 }
 
 .chat-context-menu {
