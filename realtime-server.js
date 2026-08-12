@@ -684,10 +684,24 @@ function statusLabel(status) {
   return STATUS_LABELS[status] || status;
 }
 
+function hasFinalConsonant(text) {
+  const chars = Array.from(String(text || "").trim());
+  const char = chars[chars.length - 1];
+  if (!char) return false;
+  const code = char.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return false;
+  return (code - 0xac00) % 28 !== 0;
+}
+
+function statusChangeParticle(status) {
+  return hasFinalConsonant(statusLabel(status)) ? "으로" : "로";
+}
+
 function addStatusChatMessage(actor, target, previousStatus, nextStatus, reason = "status") {
   if (!target || previousStatus === nextStatus) return;
   const previous = statusLabel(previousStatus);
   const next = statusLabel(nextStatus);
+  const particle = statusChangeParticle(nextStatus);
   if (reason === "login") {
     addSystemChatMessage(`${target.nickname}님이 로그인하여 [${next}] 상태가 되었습니다.`);
     return;
@@ -701,10 +715,10 @@ function addStatusChatMessage(actor, target, previousStatus, nextStatus, reason 
     return;
   }
   if (actor && actor.id !== target.id) {
-    addSystemChatMessage(`${actor.nickname}님이 ${target.nickname}님의 상태를 [${previous}->${next}]로 변경하였습니다.`);
+    addSystemChatMessage(`${actor.nickname}님이 ${target.nickname}님의 상태를 [${previous}->${next}]${particle} 변경하였습니다.`);
     return;
   }
-  addSystemChatMessage(`${target.nickname}님이 상태를 [${previous}->${next}]으로 변경하였습니다.`);
+  addSystemChatMessage(`${target.nickname}님이 상태를 [${previous}->${next}]${particle} 변경하였습니다.`);
 }
 
 async function deleteChatMessage(messageId) {

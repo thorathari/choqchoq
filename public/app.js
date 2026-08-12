@@ -666,14 +666,38 @@ function chatMessagesHtml(messages = visibleChatMessages()) {
 }
 
 function chatMessagesSignature(messages = visibleChatMessages()) {
-  return messages.map((message) => [
+  return messages.map(chatMessageSignature).join("\u001e");
+}
+
+function chatMessageSignature(message) {
+  return [
     message.id || "",
     message.type || "",
     message.userId || "",
     message.text || "",
     message.createdAt || "",
     message.pending ? "pending" : ""
-  ].join("\u001f")).join("\u001e");
+  ].join("\u001f");
+}
+
+function chatMessageKey(message) {
+  if (message.id) return String(message.id);
+  return [
+    message.type || "",
+    message.userId || "",
+    message.text || "",
+    message.createdAt || ""
+  ].join("\u001f");
+}
+
+function chatMessageVisualSignature(message) {
+  return [
+    message.type || "",
+    message.role || "",
+    message.userId || "",
+    message.nickname || "",
+    message.text || ""
+  ].join("\u001f");
 }
 
 function renderChatMessagesOnly(options = {}) {
@@ -683,17 +707,59 @@ function renderChatMessagesOnly(options = {}) {
   const messages = visibleChatMessages();
   const signature = chatMessagesSignature(messages);
   if (signature !== chatRenderSignature) {
-    list.innerHTML = chatMessagesHtml(messages);
+    reconcileChatMessages(list, messages);
     chatRenderSignature = signature;
   }
   restoreChatScroll(snapshot, options.forceBottom);
   return true;
 }
 
+function reconcileChatMessages(list, messages) {
+  const children = Array.from(list.children);
+  const nodes = children.filter((node) => node.classList.contains("chat-message"));
+  const nodeKeys = nodes.map((node) => node.dataset.chatKey || "");
+  const nextKeys = messages.map(chatMessageKey);
+
+  if (!nodes.length || children.some((node) => node.classList.contains("empty"))) {
+    list.innerHTML = chatMessagesHtml(messages);
+    return;
+  }
+
+  const isAppendOnly = nodeKeys.every((key, index) => key === nextKeys[index]) && messages.length >= nodes.length;
+  if (isAppendOnly) {
+    const htmlToAppend = messages.slice(nodes.length).map(chatMessage).join("");
+    if (htmlToAppend) list.insertAdjacentHTML("beforeend", htmlToAppend);
+    return;
+  }
+
+  const sameLengthLastChanged =
+    nodes.length === messages.length &&
+    nodeKeys.slice(0, -1).every((key, index) => key === nextKeys[index]);
+  if (sameLengthLastChanged) {
+    const lastNode = nodes[nodes.length - 1];
+    const nextMessage = messages[messages.length - 1];
+    if (lastNode?.dataset.chatVisual === chatMessageVisualSignature(nextMessage)) {
+      lastNode.dataset.chatKey = chatMessageKey(nextMessage);
+      lastNode.dataset.chatSignature = chatMessageSignature(nextMessage);
+      lastNode.classList.toggle("pending", !!nextMessage.pending);
+      if (!nextMessage.pending && nextMessage.id) lastNode.dataset.messageId = String(nextMessage.id);
+      else delete lastNode.dataset.messageId;
+    } else if (lastNode) {
+      lastNode.outerHTML = chatMessage(nextMessage);
+    }
+    return;
+  }
+
+  list.innerHTML = chatMessagesHtml(messages);
+}
+
 function chatMessage(message) {
+  const key = escapeHtml(chatMessageKey(message));
+  const signature = escapeHtml(chatMessageSignature(message));
+  const visualSignature = escapeHtml(chatMessageVisualSignature(message));
   if (message.type === "system" || message.role === "system") {
     return html`
-      <div class="chat-message system" ${message.id ? `data-message-id="${escapeHtml(message.id)}"` : ""}>
+      <div class="chat-message system" data-chat-key="${key}" data-chat-signature="${signature}" data-chat-visual="${visualSignature}" ${message.id ? `data-message-id="${escapeHtml(message.id)}"` : ""}>
         <div class="chat-bubble-row system">
           <div class="chat-bubble system-bubble">${escapeHtml(message.text)}</div>
         </div>
@@ -708,7 +774,7 @@ function chatMessage(message) {
   `;
   const showMeta = meta.trim().length > 0;
   return html`
-    <div class="chat-message ${mine ? "mine" : ""} ${message.pending ? "pending" : ""}" ${!message.pending && message.id ? `data-message-id="${escapeHtml(message.id)}"` : ""}>
+    <div class="chat-message ${mine ? "mine" : ""} ${message.pending ? "pending" : ""}" data-chat-key="${key}" data-chat-signature="${signature}" data-chat-visual="${visualSignature}" ${!message.pending && message.id ? `data-message-id="${escapeHtml(message.id)}"` : ""}>
       ${showMeta ? `<div class="chat-meta ${mine ? "mine-meta" : ""}">${meta}</div>` : ""}
       <div class="chat-bubble-row ${mine ? "mine" : ""}">
         <div class="chat-bubble">${escapeHtml(message.text)}</div>
