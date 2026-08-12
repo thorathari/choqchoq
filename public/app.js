@@ -601,8 +601,8 @@ function chatPanel() {
           ${messages.length ? messages.map(chatMessage).join("") : `<div class="empty">아직 대화가 없습니다.</div>`}
         </div>
         <button class="scroll-bottom-button ${isChatScrolledAway ? "visible" : ""}" type="button" data-action="chat-bottom" aria-label="맨 아래로 이동">↓</button>
-        <form class="chat-form" data-form="chat">
-          <input name="text" maxlength="300" autocomplete="off" placeholder="${placeholder}" required />
+        <form class="chat-form" data-form="chat" autocomplete="off">
+          <input name="message" maxlength="300" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="send" aria-autocomplete="none" placeholder="${placeholder}" required />
           <button class="primary" type="submit">전송</button>
         </form>
       </div>
@@ -793,7 +793,7 @@ function formData(form) {
 
 function focusChatInput() {
   if (Date.now() < suppressChatFocusUntil) return;
-  const input = document.querySelector('.chat-form input[name="text"]');
+  const input = document.querySelector('.chat-form input[name="message"]');
   if (input) {
     chatDraftFocused = true;
     input.focus({ preventScroll: true });
@@ -828,7 +828,7 @@ function scheduleChatInputViewportAdjust(delay = 80) {
 
 function keepChatInputAboveKeyboard() {
   if (!chatDraftFocused) return;
-  const input = document.querySelector('.chat-form input[name="text"]');
+  const input = document.querySelector('.chat-form input[name="message"]');
   if (!input) return;
 
   input.scrollIntoView({ block: "end", inline: "nearest" });
@@ -840,7 +840,7 @@ function keepChatInputAboveKeyboard() {
 }
 
 function getChatDraft() {
-  const input = document.querySelector('.chat-form input[name="text"]');
+  const input = document.querySelector('.chat-form input[name="message"]');
   if (input) syncChatDraftFromInput(input);
   if (!chatDraftValue && !chatDraftFocused) return null;
   return {
@@ -859,7 +859,7 @@ function syncChatDraftFromInput(input) {
 
 function restoreChatDraft(draft) {
   if (!draft) return;
-  const input = document.querySelector('.chat-form input[name="text"]');
+  const input = document.querySelector('.chat-form input[name="message"]');
   if (!input) return;
   input.value = draft.value;
   if (draft.shouldFocus && Date.now() >= suppressChatFocusUntil) input.focus({ preventScroll: true });
@@ -1125,7 +1125,7 @@ app.addEventListener("submit", async (event) => {
   const name = form.dataset.form;
   if (name === "chat") {
     const data = formData(form);
-    const text = String(data.text || "").trim();
+    const text = String(data.message || data.text || "").trim();
     if (!text) return;
     form.reset();
     chatDraftValue = "";
