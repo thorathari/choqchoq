@@ -328,13 +328,17 @@ function resetRoundFields() {
   game.answerBanRoundId = null;
 }
 
-function setHost(userId, message) {
+function setHost(userId, message, options = {}) {
   game.phase = "hosting";
   game.hostId = userId;
   game.roundId += 1;
   resetRoundFields();
   game.firstGuessDeadlineAt = Date.now() + HOST_QUESTION_TIMEOUT_MS;
   game.lastSystemMessage = message || "새 출제자가 정해졌습니다.";
+  if (options.chat !== false) {
+    const host = users.find((user) => user.id === userId) || null;
+    addSystemChatMessage(`${game.lastSystemMessage} 다음 출제자: ${host?.nickname || "알 수 없음"}님`);
+  }
 }
 
 function returnToWaiting(message) {
@@ -342,6 +346,7 @@ function returnToWaiting(message) {
   game.hostId = null;
   resetRoundFields();
   game.lastSystemMessage = message || "참여자가 부족해 대기 중입니다.";
+  addSystemChatMessage(game.lastSystemMessage);
 }
 
 function nextHostCandidates(excludeUserId = null) {
@@ -367,6 +372,7 @@ function maybeStartGame() {
     game.phase = "countdown";
     game.countdownEndsAt = Date.now() + 3000;
     game.lastSystemMessage = "참여자가 2명 이상입니다. 3초 뒤 게임이 시작됩니다.";
+    addSystemChatMessage(game.lastSystemMessage);
     return true;
   }
 
@@ -386,7 +392,8 @@ function advanceGame() {
     if (players.length < 2) returnToWaiting("참여자가 부족해 시작이 취소되었습니다.");
     else {
       const host = chooseRandom(players);
-      setHost(host.id, `${host.nickname}님이 첫 출제자입니다.`);
+      setHost(host.id, `${host.nickname}님이 첫 출제자입니다.`, { chat: false });
+      addSystemChatMessage(`게임이 시작되었습니다. 첫 출제자: ${host.nickname}님`);
     }
     changed = true;
   }
@@ -396,9 +403,9 @@ function advanceGame() {
     if (deadline && deadline <= Date.now()) {
       const missedAnswer = game.answer;
       const nextHost = chooseRandom(nextHostCandidates(game.hostId));
-      addSystemChatMessage(`아무도 정답을 맞히지 못했습니다. 정답: ${missedAnswer}`);
+      addSystemChatMessage(`아무도 정답을 맞히지 못했습니다. 정답: ${missedAnswer}${nextHost ? ` / 다음 출제자: ${nextHost.nickname}님` : ""}`);
       if (!nextHost) returnToWaiting(`아무도 정답을 맞히지 못했습니다. 정답은 "${missedAnswer}"입니다. 참여자가 부족해 대기 상태로 돌아갑니다.`);
-      else setHost(nextHost.id, `아무도 정답을 맞히지 못했습니다. 정답은 "${missedAnswer}"입니다. 출제권이 랜덤으로 넘어갔습니다.`);
+      else setHost(nextHost.id, `아무도 정답을 맞히지 못했습니다. 정답은 "${missedAnswer}"입니다. 출제권이 랜덤으로 넘어갔습니다.`, { chat: false });
       changed = true;
     }
   }
@@ -408,7 +415,7 @@ function advanceGame() {
     const nextHost = chooseRandom(nextHostCandidates(game.hostId));
     if (previousHost) addScore(previousHost.id, SCORE_TYPES.HOST_TIMEOUT, -2, { reason: "host_question_timeout" });
     if (!nextHost) returnToWaiting("출제권을 넘길 참여자가 없어 대기 상태로 돌아갑니다.");
-    else setHost(nextHost.id, "출제자가 3분 동안 문제를 내지 않아 -2점 처리되고 출제권이 넘어갔습니다.");
+    else setHost(nextHost.id, `${previousHost?.nickname || "출제자"}님이 3분 동안 문제를 내지 않아 -2점 처리되고 출제권이 넘어갔습니다.`);
     changed = true;
   }
 
@@ -787,8 +794,8 @@ function submitGuess(user, answer) {
       game.answerBanUserId = user.id;
     }
 
-    addSystemChatMessage(`${user.nickname}님이 정답을 맞혔습니다. 정답: ${correctAnswer}`);
-    setHost(user.id, `${user.nickname}님 정답! 정답은 "${correctAnswer}"입니다. 다음 출제자가 되었습니다.`);
+    addSystemChatMessage(`${user.nickname}님이 정답을 맞혔습니다. 정답: ${correctAnswer} / 다음 출제자: ${user.nickname}님`);
+    setHost(user.id, `${user.nickname}님 정답! 정답은 "${correctAnswer}"입니다. 다음 출제자가 되었습니다.`, { chat: false });
   }
 
   return correct;
@@ -982,6 +989,7 @@ async function handleApi(req, res, pathname) {
     if (game.phase !== "active" || game.hostId !== user.id) throw new Error("현재 출제자만 힌트를 줄 수 있습니다.");
     if (!text || text.length > 80) throw new Error("힌트는 1~80자로 입력해주세요.");
     game.hints.push({ id: randomId("hint"), text, createdAt: nowIso() });
+    addSystemChatMessage(`${user.nickname}님이 힌트를 남겼습니다: ${text}`);
     sendJson(res, 200, { ok: true, state: publicState(user) });
     return true;
   }
@@ -1012,7 +1020,8 @@ async function handleApi(req, res, pathname) {
     const nextHost = chooseRandom(nextHostCandidates(user.id));
     if (!nextHost) throw new Error("출제권을 받을 참여자가 없습니다.");
     addScore(user.id, SCORE_TYPES.HOST_TRANSFER, -3, { to: nextHost.id });
-    setHost(nextHost.id, `${user.nickname}님이 출제권을 양도했습니다.`);
+    setHost(nextHost.id, `${user.nickname}님이 출제권을 양도했습니다.`, { chat: false });
+    addSystemChatMessage(`${user.nickname}님이 출제권을 양도했습니다. -3점 / 다음 출제자: ${nextHost.nickname}님`);
     sendJson(res, 200, { ok: true, state: publicState(user) });
     return true;
   }
@@ -1024,7 +1033,8 @@ async function handleApi(req, res, pathname) {
     game.phase = "hosting";
     game.roundId += 1;
     resetRoundFields();
-    game.lastSystemMessage = "출제자가 문제를 리문했습니다.";
+    game.lastSystemMessage = `${user.nickname}님이 문제를 리문했습니다.`;
+    addSystemChatMessage(`${user.nickname}님이 문제를 리문했습니다. 같은 출제자가 다시 문제를 냅니다.`);
     sendJson(res, 200, { ok: true, state: publicState(user) });
     return true;
   }
@@ -1034,12 +1044,15 @@ async function handleApi(req, res, pathname) {
     if (!user) return true;
     if (game.phase !== "active") throw new Error("진행 중인 문제가 없습니다.");
     if (user.status !== "playing" || user.id === game.hostId) throw new Error("참여자만 리문요청을 할 수 있습니다.");
+    const beforeCount = game.reissueRequests.length;
     if (!game.reissueRequests.includes(user.id)) game.reissueRequests.push(user.id);
+    if (game.reissueRequests.length !== beforeCount) addSystemChatMessage(`${user.nickname}님이 리문요청했습니다. (${game.reissueRequests.length}/3)`);
     if (game.reissueRequests.length >= 3) {
       game.phase = "hosting";
       game.roundId += 1;
       resetRoundFields();
       game.lastSystemMessage = "리문요청 3명이 모여 같은 출제자가 다시 문제를 냅니다.";
+      addSystemChatMessage("리문요청 3명이 모여 같은 출제자가 다시 문제를 냅니다.");
     }
     sendJson(res, 200, { ok: true, state: publicState(user) });
     return true;
@@ -1051,9 +1064,11 @@ async function handleApi(req, res, pathname) {
     if (game.phase !== "active") throw new Error("진행 중인 문제가 없습니다.");
     if (user.status !== "playing" || user.id === game.hostId) throw new Error("참여자만 시간연장을 요청할 수 있습니다.");
     game.timeExtensionRequests = game.timeExtensionRequests || [];
-    if (!game.timeExtensionRequests.includes(user.id)) game.timeExtensionRequests.push(user.id);
-
     const target = requestTargetFor(answerParticipants());
+    const beforeCount = game.timeExtensionRequests.length;
+    if (!game.timeExtensionRequests.includes(user.id)) game.timeExtensionRequests.push(user.id);
+    if (game.timeExtensionRequests.length !== beforeCount) addSystemChatMessage(`${user.nickname}님이 시간연장요청했습니다. (${game.timeExtensionRequests.length}/${target})`);
+
     if (game.timeExtensionRequests.length >= target) {
       const baseDeadline = game.lastGuessDeadlineAt || game.firstGuessDeadlineAt || Date.now();
       const nextDeadline = Math.max(Date.now(), baseDeadline) + 60 * 1000;
@@ -1075,7 +1090,7 @@ async function handleApi(req, res, pathname) {
     const target = users.find((user) => user.id === body.userId);
     if (!target) throw new Error("사용자를 찾을 수 없습니다.");
     if (target.status !== "playing") throw new Error("참여 상태인 사용자만 출제자로 지정할 수 있습니다.");
-    setHost(target.id, `관리자가 ${target.nickname}님을 출제자로 지정했습니다.`);
+    setHost(target.id, `${admin.nickname}님이 ${target.nickname}님을 출제자로 지정했습니다.`);
     sendJson(res, 200, { ok: true, state: publicState(admin) });
     return true;
   }
