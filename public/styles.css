@@ -442,6 +442,18 @@ select:focus {
   white-space: nowrap;
 }
 
+.answer-reveal {
+  border-color: rgba(240, 195, 106, 0.46);
+  background:
+    linear-gradient(135deg, rgba(240, 195, 106, 0.16), transparent 54%),
+    var(--panel-2);
+}
+
+.round-result {
+  padding: 0 2px;
+  font-weight: 750;
+}
+
 .hero-panel .muted {
   margin: 0;
   font-size: 13px;
@@ -726,14 +738,14 @@ select:focus {
 }
 
 .chat-panel {
-  min-height: 600px;
+  min-height: 470px;
 }
 
 .chat-body {
   display: grid;
-  grid-template-rows: minmax(380px, 1fr) auto;
+  grid-template-rows: minmax(300px, 1fr) auto;
   gap: 8px;
-  height: clamp(500px, 68vh, 780px);
+  height: clamp(380px, 52vh, 620px);
   min-height: 0;
   position: relative;
 }
@@ -753,26 +765,6 @@ select:focus {
   display: grid;
   justify-items: start;
   gap: 2px;
-}
-
-.chat-system-message {
-  display: flex;
-  justify-content: center;
-  padding: 3px 0;
-}
-
-.chat-system-message span {
-  max-width: min(92%, 420px);
-  padding: 6px 10px;
-  border: 1px solid rgba(240, 195, 106, 0.42);
-  border-radius: 999px;
-  background: rgba(240, 195, 106, 0.14);
-  color: var(--gold);
-  font-size: 12px;
-  font-weight: 750;
-  line-height: 1.35;
-  text-align: center;
-  overflow-wrap: anywhere;
 }
 
 .chat-message.mine {
@@ -1088,12 +1080,12 @@ select:focus {
   }
 
   .chat-panel {
-    min-height: 560px;
+    min-height: 430px;
   }
 
   .chat-body {
-    height: clamp(460px, 66vh, 660px);
-    grid-template-rows: minmax(340px, 1fr) auto;
+    height: clamp(340px, 50vh, 540px);
+    grid-template-rows: minmax(250px, 1fr) auto;
   }
 
   .chat-bubble {

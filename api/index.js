@@ -216,7 +216,7 @@ module.exports = async function handler(req, res) {
       if (!user) return;
       const body = await readJson(req);
       const result = await submitChatMessage(user, body.text);
-      await sendState(res, user.id, result);
+      sendJson(res, 200, { ok: true, ...result });
       return;
     }
 

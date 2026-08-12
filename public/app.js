@@ -391,7 +391,7 @@ function waitingView() {
     ? needed > 0
       ? `게임 시작까지 ${needed}명이 더 필요합니다.`
       : "곧 게임이 시작됩니다."
-    : "오른쪽 위 상태를 참여로 바꾸면 게임 시작 조건에 포함됩니다.";
+    : "참여자 목록의 내 행에서 참여로 바꾸면 게임 시작 조건에 포함됩니다.";
 
   return html`
     <div class="problem">
@@ -411,17 +411,19 @@ function countdownView() {
 }
 
 function hostingView(isHost) {
+  const reveal = answerRevealInfo();
   if (!isHost) {
     return html`
       <div class="problem">
-        <div class="chosung">출제 준비 중</div>
-        <p class="muted">출제자가 분류와 정답을 입력하고 있습니다.</p>
+        ${reveal ? roundAnswerReveal(reveal) : `<div class="chosung">출제 준비 중</div>`}
+        <p class="muted">${reveal ? reveal.guide : "출제자가 분류와 정답을 입력하고 있습니다."}</p>
       </div>
     `;
   }
 
   return html`
     <form class="form" data-form="question">
+      ${reveal ? roundAnswerReveal(reveal) : ""}
       <div class="question-grid">
         <div class="form-row">
           <label>주제</label>
@@ -439,6 +441,27 @@ function hostingView(isHost) {
         <button class="small-button warning" type="button" data-action="transfer">출제권 양도</button>
       </div>
     </form>
+  `;
+}
+
+function answerRevealInfo() {
+  const text = state.game.lastSystemMessage || "";
+  const match = text.match(/^(.+?)님 정답! 정답은 "(.+)"입니다\. 다음 출제자가 되었습니다\.$/);
+  if (!match) return null;
+  return {
+    winner: match[1],
+    answer: match[2],
+    guide: `${match[1]}님이 정답을 맞혀 출제자가 되었습니다.`
+  };
+}
+
+function roundAnswerReveal(reveal) {
+  return html`
+    <div class="chosung answer-reveal">
+      <span class="category">정답</span>
+      <span>${escapeHtml(reveal.answer)}</span>
+    </div>
+    <p class="muted round-result">${escapeHtml(reveal.guide)}</p>
   `;
 }
 
@@ -519,11 +542,9 @@ function chatPanel() {
     message.text === pending.text &&
     Math.abs(new Date(message.createdAt || 0).getTime() - pending.createdAtMs) < 15000
   )));
-  const answerReveal = answerRevealMessage();
   const messages = [
     ...serverMessages,
-    ...visiblePendingMessages,
-    ...(answerReveal ? [answerReveal] : [])
+    ...visiblePendingMessages
   ];
   const placeholder = state.game.canGuess ? "대화 또는 정답 입력" : "메시지 입력";
   return html`
@@ -545,25 +566,7 @@ function chatPanel() {
   `;
 }
 
-function answerRevealMessage() {
-  const text = state.game.lastSystemMessage || "";
-  if (!text.includes("정답은")) return null;
-  return {
-    id: `answer-reveal-${state.game.roundId}`,
-    system: true,
-    text
-  };
-}
-
 function chatMessage(message) {
-  if (message.system) {
-    return html`
-      <div class="chat-system-message">
-        <span>${escapeHtml(message.text)}</span>
-      </div>
-    `;
-  }
-
   const mine = state.me && message.userId === state.me.id;
   const meta = html`
     ${mine ? "" : `<strong>${escapeHtml(message.nickname)}</strong>`}
@@ -580,6 +583,13 @@ function chatMessage(message) {
 }
 
 function usersPanel() {
+  const users = state.users
+    .slice()
+    .sort((a, b) => {
+      const aOnline = a.status === "away" ? 1 : 0;
+      const bOnline = b.status === "away" ? 1 : 0;
+      return aOnline - bOnline || a.nickname.localeCompare(b.nickname, "ko-KR");
+    });
   return html`
     <section class="panel">
       <div class="panel-header">
@@ -588,7 +598,7 @@ function usersPanel() {
       </div>
       <div class="panel-body users-body">
         <ul class="user-list">
-          ${state.users.map(userItem).join("")}
+          ${users.map(userItem).join("")}
         </ul>
       </div>
     </section>
@@ -603,7 +613,7 @@ function userItem(user) {
   const controls = canAdmin
     ? statusButtons(user.status, "admin-status", user.id)
     : isMe
-      ? statusButtons(user.status, "self-status")
+      ? statusButtons(user.status, "self-status", "", { disabled: user.status === "away" })
       : "";
   return html`
     <li class="user-item">
@@ -706,7 +716,7 @@ function statusOptions(selected) {
     .join("");
 }
 
-function statusButtons(selected, action, userId = "") {
+function statusButtons(selected, action, userId = "", options = {}) {
   const entries = Object.entries(statusLabels).filter(([value]) => value !== "away");
   return html`
     <div class="status-buttons" role="group" aria-label="상태 변경">
@@ -717,7 +727,7 @@ function statusButtons(selected, action, userId = "") {
           data-action="${action}"
           data-status="${value}"
           ${userId ? `data-user-id="${userId}"` : ""}
-          ${selected === value ? "disabled" : ""}
+          ${selected === value || options.disabled ? "disabled" : ""}
         >${label}</button>
       `).join("")}
     </div>
@@ -921,8 +931,24 @@ app.addEventListener("submit", async (event) => {
     const pendingId = addPendingChatMessage(text);
     try {
       const result = await api("/api/chat", { text });
-      removePendingChatMessage(pendingId);
-      applyStatePayload(result, { forceChatBottom: true, focusChatInput: true });
+      if (result.state) {
+        removePendingChatMessage(pendingId);
+        applyStatePayload(result, { forceChatBottom: true, focusChatInput: true });
+      } else if (!realtimeConnected) {
+        loadState({ forceChatBottom: true })
+          .catch(() => {})
+          .finally(() => {
+            removePendingChatMessage(pendingId);
+            render();
+            requestAnimationFrame(focusChatInput);
+          });
+      } else {
+        setTimeout(() => {
+          removePendingChatMessage(pendingId);
+          render();
+          requestAnimationFrame(focusChatInput);
+        }, 1800);
+      }
     } catch (error) {
       removePendingChatMessage(pendingId);
       render();
