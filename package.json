@@ -5,9 +5,11 @@
   "description": "Realtime Korean initial-consonant quiz game",
   "type": "commonjs",
   "scripts": {
-    "start": "node local-server.js",
+    "start": "node realtime-server.js",
     "dev": "node local-server.js",
-    "check": "node --check server/db.js && node --check server/game.js && node --check public/app.js && node --check api/index.js"
+    "local": "node local-server.js",
+    "realtime": "node realtime-server.js",
+    "check": "node --check server/db.js && node --check server/game.js && node --check public/app.js && node --check api/index.js && node --check local-server.js && node --check realtime-server.js"
   },
   "engines": {
     "node": ">=18"

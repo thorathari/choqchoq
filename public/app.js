@@ -1,6 +1,10 @@
 let state = null;
 let statePollHandle = null;
 let presenceHandle = null;
+let realtimeSource = null;
+let realtimeConnected = false;
+let realtimeRetryHandle = null;
+let realtimeUnavailableUntil = 0;
 let authMode = "login";
 let rankMode = "day";
 let tickHandle = null;
@@ -17,6 +21,8 @@ let chatDraftFocused = false;
 let isChatScrolledAway = false;
 const pendingChatMessages = [];
 const PRESENCE_INTERVAL_MS = 10000;
+const STATE_POLL_INTERVAL_MS = 800;
+const REALTIME_RETRY_MS = 10000;
 
 const app = document.querySelector("#app");
 const APP_NAME = "촠촠";
@@ -86,6 +92,22 @@ function applyStatePayload(payload, options = {}) {
   return true;
 }
 
+function applyStateObject(nextState, options = {}) {
+  if (!nextState) return false;
+  const shouldRender = options.forceRender || !isEditingForm() || didCriticalGameSurfaceChange(state, nextState);
+  forceNextChatScroll = !!options.forceChatBottom;
+  state = nextState;
+  if (!state.me) disconnectEvents();
+  if (!shouldRender) {
+    updateTimers();
+    if (state.me) connectEvents();
+    return false;
+  }
+  render();
+  if (state.me) connectEvents();
+  return true;
+}
+
 function isEditingForm() {
   const element = document.activeElement;
   if (!element || !app.contains(element)) return false;
@@ -96,16 +118,7 @@ function isEditingForm() {
 async function loadState(options = {}) {
   const response = await fetch("/api/state", { cache: "no-store" });
   const nextState = await response.json();
-  const shouldRender = options.forceRender || !isEditingForm() || didCriticalGameSurfaceChange(state, nextState);
-  state = nextState;
-  if (!state.me) disconnectEvents();
-  if (!shouldRender) {
-    updateTimers();
-    if (state.me) connectEvents();
-    return;
-  }
-  render();
-  if (state.me) connectEvents();
+  applyStateObject(nextState, options);
 }
 
 function didCriticalGameSurfaceChange(previous, next) {
@@ -123,7 +136,8 @@ function didCriticalGameSurfaceChange(previous, next) {
 }
 
 function connectEvents() {
-  if (!statePollHandle) statePollHandle = setInterval(loadState, 800);
+  connectRealtimeEvents();
+  if (!realtimeConnected && !statePollHandle) statePollHandle = setInterval(loadState, STATE_POLL_INTERVAL_MS);
   if (!presenceHandle) {
     sendPresence();
     presenceHandle = setInterval(sendPresence, PRESENCE_INTERVAL_MS);
@@ -133,8 +147,51 @@ function connectEvents() {
 function disconnectEvents() {
   if (statePollHandle) clearInterval(statePollHandle);
   if (presenceHandle) clearInterval(presenceHandle);
+  if (realtimeRetryHandle) clearTimeout(realtimeRetryHandle);
+  if (realtimeSource) realtimeSource.close();
   statePollHandle = null;
   presenceHandle = null;
+  realtimeRetryHandle = null;
+  realtimeSource = null;
+  realtimeConnected = false;
+}
+
+function connectRealtimeEvents() {
+  if (!window.EventSource || realtimeSource || Date.now() < realtimeUnavailableUntil) return;
+
+  const source = new EventSource("/events", { withCredentials: true });
+  realtimeSource = source;
+
+  source.addEventListener("open", () => {
+    realtimeConnected = true;
+    if (statePollHandle) clearInterval(statePollHandle);
+    statePollHandle = null;
+  });
+
+  source.addEventListener("state", (event) => {
+    try {
+      applyStateObject(JSON.parse(event.data));
+    } catch {
+      source.close();
+      if (realtimeSource === source) realtimeSource = null;
+      realtimeConnected = false;
+      if (state?.me && !statePollHandle) statePollHandle = setInterval(loadState, STATE_POLL_INTERVAL_MS);
+    }
+  });
+
+  source.onerror = () => {
+    source.close();
+    if (realtimeSource === source) realtimeSource = null;
+    realtimeConnected = false;
+    realtimeUnavailableUntil = Date.now() + REALTIME_RETRY_MS;
+    if (state?.me && !statePollHandle) statePollHandle = setInterval(loadState, STATE_POLL_INTERVAL_MS);
+    if (state?.me && !realtimeRetryHandle) {
+      realtimeRetryHandle = setTimeout(() => {
+        realtimeRetryHandle = null;
+        connectRealtimeEvents();
+      }, REALTIME_RETRY_MS);
+    }
+  };
 }
 
 async function sendPresence() {
