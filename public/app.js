@@ -23,6 +23,7 @@ let chatContextMenu = null;
 let chatContextMessageId = "";
 let chatKeyboardAdjustHandle = null;
 let keepChatPinnedToBottom = false;
+let chatRenderSignature = "";
 const pendingChatMessages = [];
 const PRESENCE_INTERVAL_MS = 10000;
 const STATE_POLL_INTERVAL_MS = 800;
@@ -102,14 +103,26 @@ function applyStatePayload(payload, options = {}) {
 function applyStateObject(nextState, options = {}) {
   if (!nextState) return false;
   const previousState = state;
+  const criticalChanged = didCriticalGameSurfaceChange(state, nextState);
+  const chatChanged = didChatTimelineChange(state, nextState);
+  const previousChatSignature = chatMessagesSignature(visibleChatMessages(state));
+  const nextChatSignature = chatMessagesSignature(visibleChatMessages(nextState));
   const shouldRender =
     options.forceRender ||
     !isEditingForm() ||
-    didCriticalGameSurfaceChange(state, nextState) ||
-    didChatTimelineChange(state, nextState);
+    criticalChanged ||
+    chatChanged;
   forceNextChatScroll = !!options.forceChatBottom;
   state = nextState;
   if (!state.me) disconnectEvents();
+  if (chatChanged && !criticalChanged && isEditingForm() && !options.forceRender) {
+    if (previousChatSignature !== nextChatSignature) {
+      renderChatMessagesOnly({ forceBottom: options.forceChatBottom || keepChatPinnedToBottom });
+    }
+    updateTimers();
+    if (state.me) connectEvents();
+    return true;
+  }
   if (!shouldRender) {
     updateTimers();
     if (state.me) connectEvents();
@@ -599,16 +612,8 @@ function roundHints() {
 }
 
 function chatPanel() {
-  const serverMessages = state.chatMessages || [];
-  const visiblePendingMessages = pendingChatMessages.filter((pending) => !serverMessages.some((message) => (
-    message.userId === pending.userId &&
-    message.text === pending.text &&
-    Math.abs(new Date(message.createdAt || 0).getTime() - pending.createdAtMs) < 15000
-  )));
-  const messages = [
-    ...serverMessages,
-    ...visiblePendingMessages
-  ];
+  const messages = visibleChatMessages();
+  chatRenderSignature = chatMessagesSignature(messages);
   const placeholder = state.game.canGuess ? "대화 또는 정답 입력" : "메시지 입력";
   return html`
     <section class="panel chat-panel">
@@ -617,7 +622,7 @@ function chatPanel() {
       </div>
       <div class="panel-body chat-body">
         <div class="chat-list">
-          ${messages.length ? messages.map(chatMessage).join("") : `<div class="empty">아직 대화가 없습니다.</div>`}
+          ${chatMessagesHtml(messages)}
         </div>
         <button class="scroll-bottom-button ${isChatScrolledAway ? "visible" : ""}" type="button" data-action="chat-bottom" aria-label="맨 아래로 이동">↓</button>
         <form class="chat-form" data-form="chat" autocomplete="off">
@@ -627,6 +632,49 @@ function chatPanel() {
       </div>
     </section>
   `;
+}
+
+function visibleChatMessages(sourceState = state) {
+  const serverMessages = sourceState?.chatMessages || [];
+  const visiblePendingMessages = pendingChatMessages.filter((pending) => !serverMessages.some((message) => (
+    message.userId === pending.userId &&
+    message.text === pending.text &&
+    Math.abs(new Date(message.createdAt || 0).getTime() - pending.createdAtMs) < 15000
+  )));
+  const messages = [
+    ...serverMessages,
+    ...visiblePendingMessages
+  ];
+  return messages;
+}
+
+function chatMessagesHtml(messages = visibleChatMessages()) {
+  return messages.length ? messages.map(chatMessage).join("") : `<div class="empty">아직 대화가 없습니다.</div>`;
+}
+
+function chatMessagesSignature(messages = visibleChatMessages()) {
+  return messages.map((message) => [
+    message.id || "",
+    message.type || "",
+    message.userId || "",
+    message.text || "",
+    message.createdAt || "",
+    message.pending ? "pending" : ""
+  ].join("\u001f")).join("\u001e");
+}
+
+function renderChatMessagesOnly(options = {}) {
+  const list = document.querySelector(".chat-list");
+  if (!list) return false;
+  const snapshot = getChatScrollSnapshot();
+  const messages = visibleChatMessages();
+  const signature = chatMessagesSignature(messages);
+  if (signature !== chatRenderSignature) {
+    list.innerHTML = chatMessagesHtml(messages);
+    chatRenderSignature = signature;
+  }
+  restoreChatScroll(snapshot, options.forceBottom);
+  return true;
 }
 
 function chatMessage(message) {
@@ -644,7 +692,6 @@ function chatMessage(message) {
   const meta = html`
     ${mine ? "" : `<strong>${escapeHtml(message.nickname)}</strong>`}
     ${message.role === "admin" ? adminCrown() : ""}
-    ${message.pending ? `<span class="sending-dot">전송 중</span>` : ""}
   `;
   const showMeta = meta.trim().length > 0;
   return html`
@@ -908,8 +955,7 @@ function addPendingChatMessage(text) {
     pending: true
   };
   pendingChatMessages.push(message);
-  forceNextChatScroll = true;
-  render();
+  renderChatMessagesOnly({ forceBottom: true });
   requestAnimationFrame(focusChatInput);
   return message.id;
 }
@@ -1169,26 +1215,26 @@ app.addEventListener("submit", async (event) => {
         applyStatePayload(result, { forceChatBottom: true, focusChatInput: true });
       } else if (result.message) {
         confirmPendingChatMessage(pendingId, result.message);
-        render();
+        renderChatMessagesOnly({ forceBottom: true });
         requestAnimationFrame(focusChatInput);
       } else if (!realtimeConnected) {
         loadState({ forceChatBottom: true })
           .catch(() => {})
           .finally(() => {
             removePendingChatMessage(pendingId);
-            render();
+            renderChatMessagesOnly({ forceBottom: true });
             requestAnimationFrame(focusChatInput);
           });
       } else {
         setTimeout(() => {
           removePendingChatMessage(pendingId);
-          render();
+          renderChatMessagesOnly({ forceBottom: true });
           requestAnimationFrame(focusChatInput);
         }, 1800);
       }
     } catch (error) {
       removePendingChatMessage(pendingId);
-      render();
+      renderChatMessagesOnly({ forceBottom: true });
       requestAnimationFrame(focusChatInput);
       alert(error.message);
     }

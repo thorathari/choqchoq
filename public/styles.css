@@ -882,15 +882,6 @@ select:focus {
   color: white;
 }
 
-.chat-message.pending .chat-bubble {
-  opacity: 0.68;
-}
-
-.sending-dot {
-  color: var(--muted);
-  font-size: 11px;
-}
-
 :root[data-theme="dark"] .chat-message.mine .chat-bubble {
   color: #08111f;
 }
