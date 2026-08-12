@@ -434,6 +434,21 @@ async function submitChatMessage(user, text) {
   return { attempted: true, correct, message: chatMessage };
 }
 
+async function deleteChatMessage(messageId) {
+  if (!messageId) throw new Error("삭제할 메시지를 선택해주세요.");
+  await supabaseRequest(`choq_chat_messages?id=eq.${encodeURIComponent(messageId)}`, {
+    method: "DELETE",
+    prefer: ""
+  });
+}
+
+async function clearChatMessages() {
+  await supabaseRequest("choq_chat_messages?id=gte.0", {
+    method: "DELETE",
+    prefer: ""
+  });
+}
+
 async function updateUserStatus(targetId, status) {
   const rows = await supabaseRequest(`choq_users?id=eq.${encodeURIComponent(targetId)}`, {
     method: "PATCH",
@@ -651,6 +666,8 @@ module.exports = {
   addChatMessage,
   adminSetHost,
   createQuestion,
+  clearChatMessages,
+  deleteChatMessage,
   addHint,
   publicState,
   requestReissue,

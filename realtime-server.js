@@ -191,9 +191,10 @@ function serveStatic(req, res) {
 
 async function initMemory() {
   if (initialized) return;
-  const [dbUsers, dbScoreEvents] = await Promise.all([
+  const [dbUsers, dbScoreEvents, dbChatMessages] = await Promise.all([
     supabaseRequest("choq_users?select=*&order=created_at.asc", { prefer: "" }),
-    supabaseRequest("choq_score_events?select=*&order=created_at.asc&limit=100000", { prefer: "" }).catch(() => [])
+    supabaseRequest("choq_score_events?select=*&order=created_at.asc&limit=100000", { prefer: "" }).catch(() => []),
+    supabaseRequest("choq_chat_messages?select=*,choq_users(nickname,role)&order=created_at.desc&limit=200", { prefer: "" }).catch(() => [])
   ]);
   users = dbUsers.map((user) => memoryUserFromDb(user, "away"));
   scoreEvents = dbScoreEvents.map((event) => ({
@@ -205,6 +206,18 @@ async function initMemory() {
     meta: event.meta || {},
     createdAt: event.created_at
   }));
+  chatMessages = dbChatMessages
+    .slice()
+    .reverse()
+    .map((message) => ({
+      id: message.id,
+      dbId: message.id,
+      userId: message.user_id,
+      nickname: message.choq_users?.nickname || "알 수 없음",
+      role: message.choq_users?.role || "user",
+      text: message.message,
+      createdAt: message.created_at
+    }));
   initialized = true;
 }
 
@@ -605,7 +618,42 @@ function addChatMessage(user, text) {
 
   chatMessages.push(chatMessage);
   chatMessages = chatMessages.slice(-200);
+  supabaseRequest("choq_chat_messages", {
+    method: "POST",
+    body: {
+      user_id: user.id,
+      message
+    }
+  })
+    .then((rows) => {
+      const created = rows?.[0];
+      if (!created) return;
+      chatMessage.dbId = created.id;
+    })
+    .catch((error) => console.error("Failed to persist chat:", error.message));
   return chatMessage;
+}
+
+async function deleteChatMessage(messageId) {
+  const targetId = String(messageId || "");
+  const message = chatMessages.find((item) => String(item.id) === targetId || String(item.dbId) === targetId);
+  if (!message) throw new Error("삭제할 메시지를 찾을 수 없습니다.");
+  chatMessages = chatMessages.filter((item) => item !== message);
+  const dbId = message.dbId || (/^\d+$/.test(String(message.id)) ? message.id : null);
+  if (dbId) {
+    await supabaseRequest(`choq_chat_messages?id=eq.${encodeURIComponent(dbId)}`, {
+      method: "DELETE",
+      prefer: ""
+    });
+  }
+}
+
+async function clearChatMessages() {
+  chatMessages = [];
+  await supabaseRequest("choq_chat_messages?id=gte.0", {
+    method: "DELETE",
+    prefer: ""
+  });
 }
 
 function submitGuess(user, answer) {
@@ -926,6 +974,23 @@ async function handleApi(req, res, pathname) {
       method: "PATCH",
       body: { role, updated_at: nowIso() }
     });
+    sendJson(res, 200, { ok: true, state: publicState(admin) });
+    return true;
+  }
+
+  if (pathname === "/api/admin/chat/delete") {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return true;
+    const body = await readJson(req);
+    await deleteChatMessage(body.messageId);
+    sendJson(res, 200, { ok: true, state: publicState(admin) });
+    return true;
+  }
+
+  if (pathname === "/api/admin/chat/clear") {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return true;
+    await clearChatMessages();
     sendJson(res, 200, { ok: true, state: publicState(admin) });
     return true;
   }

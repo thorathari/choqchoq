@@ -863,6 +863,30 @@ async function handleApi(req, res) {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/admin/chat/delete") {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const messageId = String(body.messageId || "");
+      const before = store.chatMessages.length;
+      store.chatMessages = store.chatMessages.filter((message) => String(message.id) !== messageId);
+      if (store.chatMessages.length === before) throw new Error("삭제할 메시지를 찾을 수 없습니다.");
+      saveStore();
+      broadcastState();
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/admin/chat/clear") {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      store.chatMessages = [];
+      saveStore();
+      broadcastState();
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
     sendJson(res, 404, { error: "Not found" });
   } catch (error) {
     sendJson(res, 400, { error: error.message || "요청을 처리하지 못했습니다." });

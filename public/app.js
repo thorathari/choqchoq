@@ -547,10 +547,14 @@ function chatPanel() {
     ...visiblePendingMessages
   ];
   const placeholder = state.game.canGuess ? "대화 또는 정답 입력" : "메시지 입력";
+  const canModerateChat = state.me?.role === "admin";
   return html`
     <section class="panel chat-panel">
       <div class="panel-header">
         <h2>대화</h2>
+        <div class="chat-header-actions">
+          ${canModerateChat && messages.length ? `<button class="small-button danger-button" type="button" data-action="chat-clear">대화 초기화</button>` : ""}
+        </div>
       </div>
       <div class="panel-body chat-body">
         <div class="chat-list">
@@ -568,6 +572,7 @@ function chatPanel() {
 
 function chatMessage(message) {
   const mine = state.me && message.userId === state.me.id;
+  const canDelete = state.me?.role === "admin" && !message.pending && message.id;
   const meta = html`
     ${mine ? "" : `<strong>${escapeHtml(message.nickname)}</strong>`}
     ${message.role === "admin" ? adminCrown() : ""}
@@ -577,7 +582,10 @@ function chatMessage(message) {
   return html`
     <div class="chat-message ${mine ? "mine" : ""} ${message.pending ? "pending" : ""}">
       ${showMeta ? `<div class="chat-meta ${mine ? "mine-meta" : ""}">${meta}</div>` : ""}
-      <div class="chat-bubble">${escapeHtml(message.text)}</div>
+      <div class="chat-bubble-row ${mine ? "mine" : ""}">
+        <div class="chat-bubble">${escapeHtml(message.text)}</div>
+        ${canDelete ? `<button class="chat-delete-button" type="button" data-action="chat-delete" data-message-id="${escapeHtml(message.id)}" aria-label="메시지 삭제">×</button>` : ""}
+      </div>
     </div>
   `;
 }
@@ -876,6 +884,17 @@ app.addEventListener("click", async (event) => {
     }
     if (action === "chat-bottom") {
       scrollChatToBottom();
+    }
+    if (action === "chat-delete") {
+      if (confirm("이 메시지를 삭제할까요?")) {
+        applyStatePayload(await api("/api/admin/chat/delete", { messageId: actionTarget.dataset.messageId }), { forceChatBottom: false });
+      }
+    }
+    if (action === "chat-clear") {
+      if (confirm("모든 대화를 초기화할까요?")) {
+        pendingChatMessages.length = 0;
+        applyStatePayload(await api("/api/admin/chat/clear"), { forceChatBottom: true });
+      }
     }
     if (action === "self-status") {
       applyStatePayload(await api("/api/status", { status: actionTarget.dataset.status }));

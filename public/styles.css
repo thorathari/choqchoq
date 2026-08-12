@@ -530,6 +530,12 @@ select:focus {
   font-size: 12px;
 }
 
+.danger-button {
+  border-color: rgba(220, 38, 38, 0.28);
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--danger);
+}
+
 .compact-host-tools {
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
@@ -771,6 +777,12 @@ select:focus {
   justify-items: end;
 }
 
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .chat-meta {
   display: flex;
   align-items: center;
@@ -796,6 +808,41 @@ select:focus {
   overflow-wrap: anywhere;
   font-size: 13px;
   line-height: 1.34;
+}
+
+.chat-bubble-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  max-width: min(78%, 540px);
+}
+
+.chat-bubble-row.mine {
+  flex-direction: row-reverse;
+}
+
+.chat-bubble-row .chat-bubble {
+  max-width: 100%;
+}
+
+.chat-delete-button {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(220, 38, 38, 0.22);
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--danger);
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.64;
+}
+
+.chat-message:hover .chat-delete-button,
+.chat-delete-button:focus-visible {
+  opacity: 1;
 }
 
 .chat-message.mine .chat-bubble {
@@ -1088,7 +1135,11 @@ select:focus {
     grid-template-rows: minmax(250px, 1fr) auto;
   }
 
+  .chat-bubble-row {
+    max-width: 90%;
+  }
+
   .chat-bubble {
-    max-width: 86%;
+    max-width: 100%;
   }
 }

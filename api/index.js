@@ -22,7 +22,9 @@ const {
   addChatMessage,
   addHint,
   adminSetHost,
+  clearChatMessages,
   createQuestion,
+  deleteChatMessage,
   publicState,
   requestReissue,
   reissueSameHost,
@@ -276,6 +278,25 @@ module.exports = async function handler(req, res) {
       if (!["admin", "user"].includes(role)) throw new Error("알 수 없는 권한입니다.");
       if (body.userId === admin.id && role !== "admin") throw new Error("본인의 관리자 권한은 해제할 수 없습니다.");
       await updateUserRole(body.userId, role);
+      await sendState(res, admin.id);
+      return;
+    }
+
+    if (path === "admin/chat/delete") {
+      if (!requireMethod(req, res, "POST")) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readJson(req);
+      await deleteChatMessage(body.messageId);
+      await sendState(res, admin.id);
+      return;
+    }
+
+    if (path === "admin/chat/clear") {
+      if (!requireMethod(req, res, "POST")) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      await clearChatMessages();
       await sendState(res, admin.id);
       return;
     }
