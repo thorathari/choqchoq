@@ -28,6 +28,11 @@ const PRESENCE_SWEEP_MS = 15000;
 const HOST_QUESTION_TIMEOUT_MS = 3 * 60 * 1000;
 
 const STATUSES = new Set(["playing", "watching", "away"]);
+const STATUS_LABELS = {
+  playing: "참여",
+  watching: "관전",
+  away: "부재중"
+};
 const SCORE_TYPES = {
   ANSWER_CORRECT: "ANSWER_CORRECT",
   QUESTION_SOLVED: "QUESTION_SOLVED",
@@ -275,6 +280,7 @@ function touchPresence(user) {
   user.status = user.status === "away" ? "watching" : user.status;
   user.lastSeenAt = Date.now();
   if (previous !== user.status) {
+    addStatusChatMessage(user, user, previous, user.status, "login");
     syncAfterStatusChange(user.id, user.status);
     syncUserStatusToDb(user);
   }
@@ -289,8 +295,10 @@ function expireStalePresence() {
     (!user.lastSeenAt || user.lastSeenAt < threshold)
   ));
   for (const user of staleUsers) {
+    const previous = user.status;
     user.status = "away";
     user.lastSeenAt = 0;
+    addStatusChatMessage(user, user, previous, "away", "disconnect");
     syncAfterStatusChange(user.id, "away");
     syncUserStatusToDb(user);
   }
@@ -672,6 +680,33 @@ function addSystemChatMessage(text) {
   return chatMessage;
 }
 
+function statusLabel(status) {
+  return STATUS_LABELS[status] || status;
+}
+
+function addStatusChatMessage(actor, target, previousStatus, nextStatus, reason = "status") {
+  if (!target || previousStatus === nextStatus) return;
+  const previous = statusLabel(previousStatus);
+  const next = statusLabel(nextStatus);
+  if (reason === "login") {
+    addSystemChatMessage(`${target.nickname}님이 로그인하여 [${next}] 상태가 되었습니다.`);
+    return;
+  }
+  if (reason === "logout") {
+    addSystemChatMessage(`${target.nickname}님이 로그아웃하여 [${next}] 상태가 되었습니다.`);
+    return;
+  }
+  if (reason === "disconnect") {
+    addSystemChatMessage(`${target.nickname}님이 접속이 끊겨 [${next}] 상태가 되었습니다.`);
+    return;
+  }
+  if (actor && actor.id !== target.id) {
+    addSystemChatMessage(`${actor.nickname}님이 ${target.nickname}님의 상태를 [${previous}->${next}]로 변경하였습니다.`);
+    return;
+  }
+  addSystemChatMessage(`${target.nickname}님이 상태를 [${previous}->${next}]으로 변경하였습니다.`);
+}
+
 async function deleteChatMessage(messageId) {
   const targetId = String(messageId || "");
   const message = chatMessages.find((item) => String(item.id) === targetId || String(item.dbId) === targetId);
@@ -795,6 +830,7 @@ async function register(req, res) {
   const user = memoryUserFromDb(created[0], "watching");
   users.push(user);
   setSessionCookie(res, user);
+  addStatusChatMessage(user, user, "away", "watching", "login");
   maybeStartGame();
   sendJson(res, 200, { ok: true, user: publicUser(user) });
 }
@@ -807,6 +843,7 @@ async function login(req, res) {
   }
 
   let user = users.find((item) => item.id === dbUser.id);
+  const previousStatus = user?.status || dbUser.status || "away";
   if (user) {
     Object.assign(user, dbUser);
     user.status = "watching";
@@ -825,6 +862,7 @@ async function login(req, res) {
     }
   }).catch((error) => console.error("Failed to persist login:", error.message));
 
+  addStatusChatMessage(user, user, previousStatus, "watching", "login");
   syncAfterStatusChange(user.id, "watching");
   setSessionCookie(res, user);
   sendJson(res, 200, { ok: true, user: publicUser(user) });
@@ -852,8 +890,10 @@ async function handleApi(req, res, pathname) {
   if (pathname === "/api/logout") {
     const user = await currentUser(req);
     if (user) {
+      const previousStatus = user.status;
       user.status = "away";
       user.lastSeenAt = 0;
+      addStatusChatMessage(user, user, previousStatus, "away", "logout");
       syncAfterStatusChange(user.id, "away");
       syncUserStatusToDb(user);
     }
@@ -881,8 +921,10 @@ async function handleApi(req, res, pathname) {
     const target = users.find((user) => user.id === targetId);
     if (!target) throw new Error("사용자를 찾을 수 없습니다.");
     if (target.status === "away") throw new Error("부재중인 사용자의 상태는 변경할 수 없습니다.");
+    const previousStatus = target.status;
     target.status = status;
     target.lastSeenAt = Date.now();
+    addStatusChatMessage(current, target, previousStatus, status);
     syncAfterStatusChange(target.id, status);
     syncUserStatusToDb(target);
     sendJson(res, 200, { ok: true, state: publicState(current) });

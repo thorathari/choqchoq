@@ -9,6 +9,11 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const DATA_FILE = process.env.DATA_FILE || path.join(ROOT, "data", "store.json");
 
 const STATUSES = new Set(["playing", "watching", "away"]);
+const STATUS_LABELS = {
+  playing: "참여",
+  watching: "관전",
+  away: "부재중"
+};
 const SCORE_TYPES = {
   ANSWER_CORRECT: "ANSWER_CORRECT",
   QUESTION_SOLVED: "QUESTION_SOLVED",
@@ -338,6 +343,7 @@ function touchPresenceLocal(user) {
   user.status = user.status === "away" ? "watching" : user.status;
   user.updatedAt = new Date().toISOString();
   if (previousStatus !== user.status) {
+    addStatusChatMessage(user, user, previousStatus, user.status, "login");
     syncAfterStatusChangeLocal(user, user.status);
     return;
   }
@@ -355,8 +361,10 @@ function expireStalePresenceLocal() {
   });
 
   for (const user of staleUsers) {
+    const previousStatus = user.status;
     user.status = "away";
     user.updatedAt = new Date().toISOString();
+    addStatusChatMessage(user, user, previousStatus, "away", "disconnect");
     syncAfterStatusChangeLocal(user, "away");
   }
 }
@@ -475,6 +483,33 @@ function addSystemChatMessage(text) {
     createdAt: new Date().toISOString()
   });
   store.chatMessages = store.chatMessages.slice(-200);
+}
+
+function statusLabel(status) {
+  return STATUS_LABELS[status] || status;
+}
+
+function addStatusChatMessage(actor, target, previousStatus, nextStatus, reason = "status") {
+  if (!target || previousStatus === nextStatus) return;
+  const previous = statusLabel(previousStatus);
+  const next = statusLabel(nextStatus);
+  if (reason === "login") {
+    addSystemChatMessage(`${target.nickname}님이 로그인하여 [${next}] 상태가 되었습니다.`);
+    return;
+  }
+  if (reason === "logout") {
+    addSystemChatMessage(`${target.nickname}님이 로그아웃하여 [${next}] 상태가 되었습니다.`);
+    return;
+  }
+  if (reason === "disconnect") {
+    addSystemChatMessage(`${target.nickname}님이 접속이 끊겨 [${next}] 상태가 되었습니다.`);
+    return;
+  }
+  if (actor && actor.id !== target.id) {
+    addSystemChatMessage(`${actor.nickname}님이 ${target.nickname}님의 상태를 [${previous}->${next}]로 변경하였습니다.`);
+    return;
+  }
+  addSystemChatMessage(`${target.nickname}님이 상태를 [${previous}->${next}]으로 변경하였습니다.`);
 }
 
 function reissueSameHost(message) {
@@ -645,6 +680,7 @@ async function handleApi(req, res) {
         updatedAt: now
       };
       store.users.push(user);
+      addStatusChatMessage(user, user, "away", "watching", "login");
       saveStore();
       const sid = randomId("sid");
       sessions.set(sid, user.id);
@@ -659,8 +695,10 @@ async function handleApi(req, res) {
       const password = String(body.password || "");
       const user = store.users.find((item) => item.username.toLowerCase() === username.toLowerCase());
       if (!user || !verifyPassword(password, user)) throw new Error("아이디 또는 비밀번호가 올바르지 않습니다.");
+      const previousStatus = user.status;
       user.status = "watching";
       user.updatedAt = new Date().toISOString();
+      addStatusChatMessage(user, user, previousStatus, "watching", "login");
       syncAfterStatusChangeLocal(user, "watching");
       const sid = randomId("sid");
       sessions.set(sid, user.id);
@@ -673,8 +711,10 @@ async function handleApi(req, res) {
       const user = getSessionUser(req);
       if (sid) sessions.delete(sid);
       if (user) {
+        const previousStatus = user.status;
         user.status = "away";
         user.updatedAt = new Date().toISOString();
+        addStatusChatMessage(user, user, previousStatus, "away", "logout");
         syncAfterStatusChangeLocal(user, "away");
       }
       sendJson(res, 200, { ok: true }, ["sid=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0"]);
@@ -700,8 +740,10 @@ async function handleApi(req, res) {
       if (targetId !== current.id && current.role !== "admin") throw new Error("다른 사용자의 상태는 관리자만 변경할 수 있습니다.");
       const target = store.users.find((user) => user.id === targetId);
       if (!target) throw new Error("사용자를 찾을 수 없습니다.");
+      const previousStatus = target.status;
       target.status = status;
       target.updatedAt = new Date().toISOString();
+      addStatusChatMessage(current, target, previousStatus, status);
       syncAfterStatusChangeLocal(target, status);
       sendJson(res, 200, { ok: true });
       return;
