@@ -270,7 +270,7 @@ function renderAuth() {
         <div class="app-mark">ㅊ</div>
         <div>
           <h1>${APP_NAME}</h1>
-          <span>초성퀴즈 게임방</span>
+          <span>ㅊㅅㅋㅈㄱㄱㄱㄱ</span>
         </div>
       </div>
       <div class="panel">
@@ -334,7 +334,7 @@ function renderGame() {
           <div class="app-mark">ㅊ</div>
           <div>
             <h1>${APP_NAME}</h1>
-            <span>초성퀴즈 게임방</span>
+            <span>ㅊㅅㅋㅈㄱㄱㄱㄱ</span>
           </div>
         </div>
         <div class="userbar">
