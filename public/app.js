@@ -22,6 +22,7 @@ let isChatScrolledAway = false;
 let chatContextMenu = null;
 let chatContextMessageId = "";
 let chatKeyboardAdjustHandle = null;
+let keepChatPinnedToBottom = false;
 const pendingChatMessages = [];
 const PRESENCE_INTERVAL_MS = 10000;
 const STATE_POLL_INTERVAL_MS = 800;
@@ -813,6 +814,7 @@ function updateVisualViewportHeight() {
 
 function setChatKeyboardMode(enabled) {
   document.body.classList.toggle("chat-keyboard-open", enabled);
+  if (!enabled) keepChatPinnedToBottom = false;
   updateVisualViewportHeight();
 }
 
@@ -834,6 +836,7 @@ function keepChatInputAboveKeyboard() {
   const viewportBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
   const gap = viewportBottom - input.getBoundingClientRect().bottom;
   if (gap < 10) window.scrollBy({ top: 10 - gap, left: 0, behavior: "auto" });
+  if (keepChatPinnedToBottom) scrollChatToBottom();
 }
 
 function getChatDraft() {
@@ -1070,10 +1073,13 @@ app.addEventListener("change", async (event) => {
 
 app.addEventListener("focusin", (event) => {
   if (event.target.closest?.(".chat-form")) {
+    const snapshot = getChatScrollSnapshot();
+    keepChatPinnedToBottom = !snapshot || snapshot.isNearBottom;
     chatDraftFocused = true;
     suppressChatFocusUntil = 0;
     syncChatDraftFromInput(event.target);
     setChatKeyboardMode(true);
+    if (keepChatPinnedToBottom) requestAnimationFrame(scrollChatToBottom);
     scheduleChatInputViewportAdjust(80);
     setTimeout(() => {
       if (chatDraftFocused) keepChatInputAboveKeyboard();
@@ -1085,6 +1091,7 @@ app.addEventListener("focusout", (event) => {
   if (event.target.closest?.(".chat-form")) {
     chatDraftFocused = false;
     syncChatDraftFromInput(event.target);
+    keepChatPinnedToBottom = false;
     setChatKeyboardMode(false);
   }
   if (!isRendering && event.target.closest?.(".chat-form")) {
@@ -1103,6 +1110,14 @@ app.addEventListener("scroll", (event) => {
   isChatScrolledAway = distanceFromBottom >= 80;
   updateChatBottomButton();
 }, true);
+
+app.addEventListener("wheel", (event) => {
+  if (event.target.closest?.(".chat-list")) keepChatPinnedToBottom = false;
+}, { passive: true });
+
+app.addEventListener("touchmove", (event) => {
+  if (event.target.closest?.(".chat-list")) keepChatPinnedToBottom = false;
+}, { passive: true });
 
 app.addEventListener("submit", async (event) => {
   event.preventDefault();
