@@ -805,6 +805,22 @@ function removePendingChatMessage(id) {
   if (index >= 0) pendingChatMessages.splice(index, 1);
 }
 
+function confirmPendingChatMessage(id, message) {
+  const index = pendingChatMessages.findIndex((item) => item.id === id);
+  if (index < 0) return false;
+  pendingChatMessages[index] = {
+    id: message.id || id,
+    userId: message.userId,
+    nickname: message.nickname,
+    role: message.role,
+    text: message.text,
+    createdAt: message.createdAt,
+    createdAtMs: new Date(message.createdAt || Date.now()).getTime(),
+    pending: false
+  };
+  return true;
+}
+
 function updateChatBottomButton() {
   const button = document.querySelector(".scroll-bottom-button");
   if (button) button.classList.toggle("visible", isChatScrolledAway);
@@ -934,6 +950,10 @@ app.addEventListener("submit", async (event) => {
       if (result.state) {
         removePendingChatMessage(pendingId);
         applyStatePayload(result, { forceChatBottom: true, focusChatInput: true });
+      } else if (result.message) {
+        confirmPendingChatMessage(pendingId, result.message);
+        render();
+        requestAnimationFrame(focusChatInput);
       } else if (!realtimeConnected) {
         loadState({ forceChatBottom: true })
           .catch(() => {})

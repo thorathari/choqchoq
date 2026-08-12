@@ -399,18 +399,26 @@ async function addChatMessage(user, text) {
   if (!message) throw new Error("메시지를 입력해주세요.");
   if (message.length > 300) throw new Error("메시지는 300자 이하로 입력해주세요.");
 
-  await supabaseRequest("choq_chat_messages", {
+  const rows = await supabaseRequest("choq_chat_messages", {
     method: "POST",
     body: {
       user_id: user.id,
       message
     }
   });
+  const created = rows?.[0] || {};
+  return {
+    id: created.id || `chat_${Date.now()}`,
+    userId: user.id,
+    nickname: user.nickname,
+    role: user.role,
+    text: message,
+    createdAt: created.created_at || nowIso()
+  };
 }
 
 async function submitChatMessage(user, text) {
-  const message = String(text || "").trim();
-  await addChatMessage(user, message);
+  const chatMessage = await addChatMessage(user, text);
 
   const game = await getGame();
   const isGuessLike =
@@ -418,12 +426,12 @@ async function submitChatMessage(user, text) {
     user.status === "playing" &&
     user.id !== game.hostId &&
     !(game.answerBanUserId === user.id && game.answerBanRoundId === game.roundId) &&
-    normalizeChosung(message) === normalizeAnswer(game.chosung);
+    normalizeChosung(chatMessage.text) === normalizeAnswer(game.chosung);
 
-  if (!isGuessLike) return { attempted: false, correct: false };
+  if (!isGuessLike) return { attempted: false, correct: false, message: chatMessage };
 
-  const correct = await submitGuess(user, message);
-  return { attempted: true, correct };
+  const correct = await submitGuess(user, chatMessage.text);
+  return { attempted: true, correct, message: chatMessage };
 }
 
 async function updateUserStatus(targetId, status) {

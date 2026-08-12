@@ -594,16 +594,18 @@ function addChatMessage(user, text) {
   if (!message) throw new Error("메시지를 입력해주세요.");
   if (message.length > 300) throw new Error("메시지는 300자 이하로 입력해주세요.");
 
-  chatMessages.push({
+  const chatMessage = {
     id: randomId("chat"),
     userId: user.id,
     nickname: user.nickname,
     role: user.role,
     text: message,
     createdAt: nowIso()
-  });
+  };
+
+  chatMessages.push(chatMessage);
   chatMessages = chatMessages.slice(-200);
-  return message;
+  return chatMessage;
 }
 
 function submitGuess(user, answer) {
@@ -657,16 +659,16 @@ function submitGuess(user, answer) {
 }
 
 function submitChatMessage(user, text) {
-  const message = addChatMessage(user, text);
+  const chatMessage = addChatMessage(user, text);
   const isGuessLike =
     game.phase === "active" &&
     user.status === "playing" &&
     user.id !== game.hostId &&
     !(game.answerBanUserId === user.id && game.answerBanRoundId === game.roundId) &&
-    normalizeChosung(message) === normalizeAnswer(game.chosung);
+    normalizeChosung(chatMessage.text) === normalizeAnswer(game.chosung);
 
-  if (!isGuessLike) return { attempted: false, correct: false };
-  return { attempted: true, correct: submitGuess(user, message) };
+  if (!isGuessLike) return { attempted: false, correct: false, message: chatMessage };
+  return { attempted: true, correct: submitGuess(user, chatMessage.text), message: chatMessage };
 }
 
 async function register(req, res) {
