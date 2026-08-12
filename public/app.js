@@ -102,7 +102,11 @@ function applyStatePayload(payload, options = {}) {
 function applyStateObject(nextState, options = {}) {
   if (!nextState) return false;
   const previousState = state;
-  const shouldRender = options.forceRender || !isEditingForm() || didCriticalGameSurfaceChange(state, nextState);
+  const shouldRender =
+    options.forceRender ||
+    !isEditingForm() ||
+    didCriticalGameSurfaceChange(state, nextState) ||
+    didChatTimelineChange(state, nextState);
   forceNextChatScroll = !!options.forceChatBottom;
   state = nextState;
   if (!state.me) disconnectEvents();
@@ -141,6 +145,21 @@ function didCriticalGameSurfaceChange(previous, next) {
     previous.game.hostId !== next.game.hostId ||
     previous.me.status !== next.me.status ||
     previous.me.role !== next.me.role
+  );
+}
+
+function didChatTimelineChange(previous, next) {
+  if (!previous || !next) return true;
+  const previousMessages = previous.chatMessages || [];
+  const nextMessages = next.chatMessages || [];
+  if (previousMessages.length !== nextMessages.length) return true;
+
+  const previousLast = previousMessages[previousMessages.length - 1];
+  const nextLast = nextMessages[nextMessages.length - 1];
+  return (
+    previousLast?.id !== nextLast?.id ||
+    previousLast?.text !== nextLast?.text ||
+    previousLast?.createdAt !== nextLast?.createdAt
   );
 }
 
