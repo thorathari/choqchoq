@@ -480,6 +480,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   flex: 0 1 auto;
+  margin-left: auto;
   min-width: 0;
   max-width: 150px;
   gap: 5px;
