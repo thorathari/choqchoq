@@ -524,6 +524,7 @@ function gamePanel() {
         <h2>라운드</h2>
         <div class="status-line">
           <span class="badge">${phaseLabels[game.phase]}</span>
+          ${game.phase === "hosting" && isHost ? `<button class="badge request-chip warning-chip" type="button" data-action="transfer">출제권 양도</button>` : ""}
           ${roundRequestChips(isHost)}
           ${game.host ? `<span class="badge host">출제자 ${escapeHtml(game.host.nickname)}</span>` : ""}
           ${currentDeadline() ? `<span class="badge timer" data-timer="${currentDeadline()}">--:--</span>` : ""}
@@ -607,23 +608,12 @@ function hostingView(isHost) {
   }
 
   return html`
-    <form class="form" data-form="question">
+    <form class="form question-form" data-form="question">
       ${reveal ? roundAnswerReveal(reveal) : ""}
-      <div class="question-grid">
-        <div class="form-row">
-          <label>주제</label>
-          <input name="category" placeholder="사물" maxlength="20" required />
-        </div>
-        <div class="form-row">
-          <label>정답</label>
-          <div class="answer-submit-row">
-            <input name="answer" placeholder="지우개" maxlength="30" required />
-            <button class="primary" type="submit">문제 내기</button>
-          </div>
-        </div>
-      </div>
-      <div class="round-transfer-row">
-        <button class="small-button warning" type="button" data-action="transfer">출제권 양도</button>
+      <div class="question-compact-row">
+        <input class="question-category-input" name="category" placeholder="주제" aria-label="주제" maxlength="20" required />
+        <input name="answer" placeholder="정답" aria-label="정답" maxlength="30" required />
+        <button class="primary small-button" type="submit">문제 내기</button>
       </div>
     </form>
   `;
