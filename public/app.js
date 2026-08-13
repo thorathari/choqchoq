@@ -112,6 +112,7 @@ function applyStateObject(nextState, options = {}) {
   const previousState = state;
   const criticalChanged = didCriticalGameSurfaceChange(state, nextState);
   const chatChanged = didChatTimelineChange(state, nextState);
+  const chatInputActive = isChatInputActive();
   const previousChatSignature = chatMessagesSignature(visibleChatMessages(state));
   const nextChatSignature = chatMessagesSignature(visibleChatMessages(nextState));
   const shouldRender =
@@ -122,6 +123,16 @@ function applyStateObject(nextState, options = {}) {
   forceNextChatScroll = !!options.forceChatBottom;
   state = nextState;
   if (!state.me) disconnectEvents();
+  if (chatInputActive && criticalChanged && !options.forceRender) {
+    renderNonChatSurfaces();
+    updateChatFormSurface();
+    if (chatChanged && previousChatSignature !== nextChatSignature) {
+      renderChatMessagesOnly({ forceBottom: options.forceChatBottom || keepChatPinnedToBottom });
+    }
+    updateTimers();
+    if (state.me) connectEvents();
+    return true;
+  }
   if (chatChanged && !criticalChanged && isEditingForm() && !options.forceRender) {
     if (previousChatSignature !== nextChatSignature) {
       renderChatMessagesOnly({ forceBottom: options.forceChatBottom || keepChatPinnedToBottom });
@@ -146,6 +157,11 @@ function isEditingForm() {
   if (!element || !app.contains(element)) return false;
   if (!["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName)) return false;
   return !!element.closest("form");
+}
+
+function isChatInputActive() {
+  const element = document.activeElement;
+  return !!element?.closest?.('.chat-form [name="message"]');
 }
 
 async function loadState(options = {}) {
@@ -459,6 +475,31 @@ function renderGame() {
       </div>
     </div>
   `;
+}
+
+function renderNonChatSurfaces() {
+  isRendering = true;
+  try {
+    const hero = document.querySelector(".hero-panel");
+    const side = document.querySelector(".side-column");
+    if (hero) hero.outerHTML = gamePanel();
+    if (side) {
+      side.innerHTML = html`
+        ${usersPanel()}
+        ${scorePanel()}
+        ${rankingPanel()}
+        ${state.me.role === "admin" ? adminPanel() : ""}
+      `;
+    }
+  } finally {
+    isRendering = false;
+  }
+}
+
+function updateChatFormSurface() {
+  const input = document.querySelector('.chat-form [name="message"]');
+  if (!input) return;
+  input.placeholder = state.game.canGuess ? "대화 또는 정답 입력" : "메시지 입력";
 }
 
 function gamePanel() {

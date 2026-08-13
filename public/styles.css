@@ -696,36 +696,33 @@ textarea {
 }
 
 .user-filter-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--panel-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0;
   user-select: none;
 }
 
 .user-filter-tabs button {
-  min-height: 28px;
-  padding: 0 8px;
-  border-color: transparent;
-  border-radius: 7px;
+  min-height: 24px;
+  padding: 0 9px;
+  border-color: var(--line);
+  border-radius: 999px;
   background: transparent;
   box-shadow: none;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 
 .user-filter-tabs button.active {
-  border-color: rgba(21, 128, 61, 0.22);
-  background: rgba(21, 128, 61, 0.12);
-  color: var(--accent-strong);
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
 }
 
-.user-filter-tabs button:not(.active) {
-  opacity: 0.72;
+:root[data-theme="dark"] .user-filter-tabs button.active {
+  color: #08111f;
 }
 
 .user-empty {
