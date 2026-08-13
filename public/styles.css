@@ -269,17 +269,40 @@ textarea {
 }
 
 .hero-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 228px;
   overflow: hidden;
   border-color: rgba(37, 99, 235, 0.18);
   box-shadow: var(--soft-shadow);
 }
 
 .hero-panel .panel-header {
+  min-height: 38px;
   padding: 12px 14px 0;
 }
 
 .hero-panel .panel-header h2 {
+  flex: 0 0 auto;
   font-size: 14px;
+}
+
+.hero-panel .status-line {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.hero-panel .status-line .badge {
+  flex: 0 0 auto;
+}
+
+.hero-panel .status-line .badge.host {
+  min-width: 0;
+  max-width: 124px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .panel-header {
@@ -302,7 +325,10 @@ textarea {
 }
 
 .hero-body {
+  height: 174px;
   padding: 10px 14px 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .auth-wrap {
@@ -993,6 +1019,10 @@ textarea {
   max-height: 42px;
   padding: 10px 12px;
   line-height: 1.35;
+  overflow-y: hidden;
+}
+
+.chat-form textarea.has-multiline {
   overflow-y: auto;
 }
 

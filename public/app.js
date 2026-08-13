@@ -500,6 +500,7 @@ function updateChatFormSurface() {
   const input = document.querySelector('.chat-form [name="message"]');
   if (!input) return;
   input.placeholder = state.game.canGuess ? "대화 또는 정답 입력" : "메시지 입력";
+  updateChatTextareaScrollMode(input);
 }
 
 function gamePanel() {
@@ -1127,6 +1128,7 @@ function syncChatDraftFromInput(input) {
   chatDraftValue = input.value;
   chatDraftSelectionStart = input.selectionStart;
   chatDraftSelectionEnd = input.selectionEnd;
+  updateChatTextareaScrollMode(input);
 }
 
 function restoreChatDraft(draft) {
@@ -1134,10 +1136,18 @@ function restoreChatDraft(draft) {
   const input = document.querySelector('.chat-form [name="message"]');
   if (!input) return;
   input.value = draft.value;
+  updateChatTextareaScrollMode(input);
   if (draft.shouldFocus && Date.now() >= suppressChatFocusUntil) input.focus({ preventScroll: true });
   if (document.activeElement === input && draft.selectionStart !== null && draft.selectionEnd !== null) {
     input.setSelectionRange(draft.selectionStart, draft.selectionEnd);
   }
+}
+
+function updateChatTextareaScrollMode(input) {
+  if (!input?.matches?.('textarea[name="message"]')) return;
+  input.classList.remove("has-multiline");
+  const needsScroll = input.value.includes("\n") || input.scrollHeight > input.clientHeight + 1;
+  input.classList.toggle("has-multiline", needsScroll);
 }
 
 function addPendingChatMessage(text) {
@@ -1419,6 +1429,7 @@ app.addEventListener("submit", async (event) => {
     const text = String(data.message || data.text || "").trim();
     if (!text) return;
     form.reset();
+    updateChatTextareaScrollMode(form.querySelector('[name="message"]'));
     chatDraftValue = "";
     chatDraftSelectionStart = null;
     chatDraftSelectionEnd = null;
