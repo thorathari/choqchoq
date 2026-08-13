@@ -459,7 +459,7 @@ textarea {
     linear-gradient(135deg, rgba(37, 99, 235, 0.1), transparent 52%),
     linear-gradient(315deg, rgba(249, 115, 22, 0.08), transparent 52%),
     var(--panel-2);
-  text-align: center;
+  text-align: left;
   font-size: clamp(17px, 2.1vw, 23px);
   font-weight: 900;
   line-height: 1.15;
@@ -469,7 +469,7 @@ textarea {
 }
 
 .chosung > span:not(.category):not(.host-answer-chip) {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
