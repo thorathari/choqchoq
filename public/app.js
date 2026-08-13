@@ -524,6 +524,7 @@ function gamePanel() {
         <h2>라운드</h2>
         <div class="status-line">
           <span class="badge">${phaseLabels[game.phase]}</span>
+          ${roundRequestChips(isHost)}
           ${game.host ? `<span class="badge host">출제자 ${escapeHtml(game.host.nickname)}</span>` : ""}
           ${currentDeadline() ? `<span class="badge timer" data-timer="${currentDeadline()}">--:--</span>` : ""}
         </div>
@@ -535,6 +536,32 @@ function gamePanel() {
         ${game.phase === "active" ? activeView(isHost) : ""}
       </div>
     </section>
+  `;
+}
+
+function roundRequestChips(isHost) {
+  const game = state.game;
+  if (game.phase !== "active") return "";
+
+  const reissueCount = `${game.reissueRequestCount}/3`;
+  const extensionCount = `${game.timeExtensionRequestCount || 0}/${game.timeExtensionRequestTarget || 1}`;
+  if (isHost) {
+    return html`
+      <span class="badge request-chip passive">리문 ${reissueCount}</span>
+      <span class="badge request-chip passive">연장 ${extensionCount}</span>
+    `;
+  }
+
+  const canRequest = state.me.status === "playing";
+  const alreadyRequested = game.reissueRequests.includes(state.me.id);
+  const alreadyExtended = (game.timeExtensionRequests || []).includes(state.me.id);
+  return html`
+    <button class="badge request-chip ${alreadyRequested ? "active" : ""}" type="button" data-action="reissue-request" ${!canRequest || alreadyRequested ? "disabled" : ""}>
+      ${alreadyRequested ? "리문완료" : "리문"} ${reissueCount}
+    </button>
+    <button class="badge request-chip ${alreadyExtended ? "active" : ""}" type="button" data-action="time-extension-request" ${!canRequest || alreadyExtended ? "disabled" : ""}>
+      ${alreadyExtended ? "연장완료" : "연장"} ${extensionCount}
+    </button>
   `;
 }
 
@@ -659,8 +686,6 @@ function hostTools() {
         <button class="primary small-button" type="submit">힌트 주기</button>
       </div>
       <div class="actions host-secondary-actions">
-        <span class="badge reissue-count">리문요청 ${game.reissueRequestCount}/3</span>
-        <span class="badge reissue-count">시간연장 ${game.timeExtensionRequestCount || 0}/${game.timeExtensionRequestTarget || 1}</span>
         <button class="small-button" type="button" data-action="reissue">리문</button>
         <button class="small-button warning" type="button" data-action="transfer">출제권 양도</button>
       </div>
@@ -670,31 +695,16 @@ function hostTools() {
 
 function guessTools() {
   const game = state.game;
-  const alreadyRequested = game.reissueRequests.includes(state.me.id);
-  const alreadyExtended = (game.timeExtensionRequests || []).includes(state.me.id);
-  const reissueDisabled = alreadyRequested || state.me.status !== "playing";
-  const extensionDisabled = alreadyExtended || state.me.status !== "playing";
-  const reissueButton = html`
-    <div class="actions participant-round-actions">
-      <span class="badge reissue-count">요청 ${game.reissueRequestCount}/3</span>
-      <button class="small-button" type="button" data-action="reissue-request" ${reissueDisabled ? "disabled" : ""}>${alreadyRequested ? "요청 완료" : "리문요청"}</button>
-      <span class="badge reissue-count">연장 ${game.timeExtensionRequestCount || 0}/${game.timeExtensionRequestTarget || 1}</span>
-      <button class="small-button" type="button" data-action="time-extension-request" ${extensionDisabled ? "disabled" : ""}>${alreadyExtended ? "요청 완료" : "시간연장요청"}</button>
-    </div>
-  `;
-
   if (!game.canGuess) {
     return html`
       <div class="message ${game.guessBlockedReason ? "danger-text" : ""}">
         ${escapeHtml(game.guessBlockedReason || "현재 상태에서는 정답을 제출할 수 없습니다.")}
       </div>
-      ${reissueButton}
     `;
   }
 
   return html`
     <div class="message">채팅에 초성이 맞는 단어를 입력하면 답변으로 제출됩니다.</div>
-    ${reissueButton}
   `;
 }
 

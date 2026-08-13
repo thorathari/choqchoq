@@ -291,7 +291,12 @@ textarea {
   flex-wrap: nowrap;
   justify-content: flex-end;
   min-width: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.hero-panel .status-line::-webkit-scrollbar {
+  display: none;
 }
 
 .hero-panel .status-line .badge {
@@ -405,6 +410,41 @@ textarea {
   color: var(--muted);
   white-space: nowrap;
   user-select: none;
+}
+
+.request-chip {
+  min-height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+button.request-chip {
+  background: var(--panel-2);
+  color: var(--muted);
+  box-shadow: none;
+  transform: none;
+}
+
+button.request-chip:hover:not(:disabled),
+button.request-chip:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  box-shadow: none;
+  transform: none;
+}
+
+.request-chip.active,
+.request-chip.passive {
+  border-color: rgba(37, 99, 235, 0.26);
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--accent-strong);
+}
+
+button.request-chip:disabled.active {
+  opacity: 1;
 }
 
 .badge.host {
