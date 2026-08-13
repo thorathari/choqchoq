@@ -688,6 +688,44 @@ select:focus {
   padding-top: 10px;
 }
 
+.user-filter-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-2);
+  user-select: none;
+}
+
+.user-filter-tabs button {
+  min-height: 28px;
+  padding: 0 8px;
+  border-color: transparent;
+  border-radius: 7px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.user-filter-tabs button.active {
+  border-color: rgba(21, 128, 61, 0.22);
+  background: rgba(21, 128, 61, 0.12);
+  color: var(--accent-strong);
+}
+
+.user-filter-tabs button:not(.active) {
+  opacity: 0.72;
+}
+
+.user-empty {
+  display: block;
+  padding: 12px 8px;
+}
+
 .log-item,
 .user-item,
 .score-item {

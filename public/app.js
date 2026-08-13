@@ -7,6 +7,7 @@ let realtimeRetryHandle = null;
 let realtimeUnavailableUntil = 0;
 let authMode = "login";
 let rankMode = "day";
+let userStatusFilters = new Set(["playing", "watching"]);
 let tickHandle = null;
 let theme = localStorage.getItem("choqchoq-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 let isSubmitting = false;
@@ -36,6 +37,12 @@ const statusLabels = {
   playing: "참여",
   watching: "관전",
   away: "부재중"
+};
+
+const userStatusOrder = {
+  playing: 0,
+  watching: 1,
+  away: 2
 };
 
 const phaseLabels = {
@@ -804,10 +811,10 @@ function chatMessage(message) {
 function usersPanel() {
   const users = state.users
     .slice()
+    .filter((user) => userStatusFilters.has(user.status))
     .sort((a, b) => {
-      const aOnline = a.status === "away" ? 1 : 0;
-      const bOnline = b.status === "away" ? 1 : 0;
-      return aOnline - bOnline || a.nickname.localeCompare(b.nickname, "ko-KR");
+      const statusDiff = (userStatusOrder[a.status] ?? 99) - (userStatusOrder[b.status] ?? 99);
+      return statusDiff || a.nickname.localeCompare(b.nickname, "ko-KR");
     });
   return html`
     <section class="panel">
@@ -816,11 +823,28 @@ function usersPanel() {
         <span class="badge playing">${state.game.playerCount}명 참여</span>
       </div>
       <div class="panel-body users-body">
+        ${userStatusFilterControls()}
         <ul class="user-list">
-          ${users.map(userItem).join("")}
+          ${users.length ? users.map(userItem).join("") : `<li class="empty user-empty">선택한 상태의 사용자가 없습니다.</li>`}
         </ul>
       </div>
     </section>
+  `;
+}
+
+function userStatusFilterControls() {
+  return html`
+    <div class="user-filter-tabs" role="group" aria-label="참여자 상태 필터">
+      ${Object.entries(statusLabels).map(([value, label]) => `
+        <button
+          type="button"
+          class="${userStatusFilters.has(value) ? "active" : ""}"
+          data-action="user-filter"
+          data-status="${value}"
+          aria-pressed="${userStatusFilters.has(value) ? "true" : "false"}"
+        >${label}</button>
+      `).join("")}
+    </div>
   `;
 }
 
@@ -1186,6 +1210,12 @@ app.addEventListener("click", async (event) => {
     }
     if (action === "chat-bottom") {
       scrollChatToBottom();
+    }
+    if (action === "user-filter") {
+      const status = actionTarget.dataset.status;
+      if (userStatusFilters.has(status)) userStatusFilters.delete(status);
+      else userStatusFilters.add(status);
+      render();
     }
     if (action === "self-status") {
       applyStatePayload(await api("/api/status", { status: actionTarget.dataset.status }));
