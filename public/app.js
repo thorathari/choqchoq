@@ -25,6 +25,7 @@ let chatContextMessageId = "";
 let chatKeyboardAdjustHandle = null;
 let keepChatPinnedToBottom = false;
 let chatRenderSignature = "";
+let serverTimeOffsetMs = 0;
 const pendingChatMessages = [];
 const PRESENCE_INTERVAL_MS = 10000;
 const STATE_POLL_INTERVAL_MS = 800;
@@ -98,6 +99,7 @@ function restoreChatScroll(snapshot, forceBottom = false) {
 function applyStatePayload(payload, options = {}) {
   if (!payload?.state) return false;
   const previousState = state;
+  syncServerClock(payload.state);
   forceNextChatScroll = !!options.forceChatBottom;
   state = payload.state;
   render();
@@ -109,6 +111,7 @@ function applyStatePayload(payload, options = {}) {
 
 function applyStateObject(nextState, options = {}) {
   if (!nextState) return false;
+  syncServerClock(nextState);
   const previousState = state;
   const criticalChanged = didCriticalGameSurfaceChange(state, nextState);
   const chatChanged = didChatTimelineChange(state, nextState);
@@ -168,6 +171,15 @@ async function loadState(options = {}) {
   const response = await fetch("/api/state", { cache: "no-store" });
   const nextState = await response.json();
   applyStateObject(nextState, options);
+}
+
+function syncServerClock(nextState) {
+  const serverNow = Number(nextState?.game?.serverNow);
+  if (Number.isFinite(serverNow)) serverTimeOffsetMs = serverNow - Date.now();
+}
+
+function timerNow() {
+  return Date.now() + serverTimeOffsetMs;
 }
 
 function didCriticalGameSurfaceChange(previous, next) {
@@ -1056,7 +1068,7 @@ function statusButtons(selected, action, userId = "", options = {}) {
 function updateTimers() {
   document.querySelectorAll("[data-timer]").forEach((node) => {
     const deadline = Number(node.dataset.timer);
-    node.textContent = formatTime(deadline - Date.now());
+    node.textContent = formatTime(deadline - timerNow());
   });
 }
 
