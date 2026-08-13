@@ -60,7 +60,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -103,7 +104,8 @@ button:disabled {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -114,9 +116,14 @@ select {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+textarea {
+  resize: none;
 }
 
 .shell {
@@ -880,6 +887,7 @@ select:focus {
   border-radius: 16px 16px 16px 4px;
   background: var(--panel-2);
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
   font-size: 13px;
   line-height: 1.34;
   user-select: none;
@@ -980,6 +988,15 @@ select:focus {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
   scroll-margin-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+.chat-form textarea {
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  padding: 10px 12px;
+  line-height: 1.35;
+  overflow-y: auto;
 }
 
 .scroll-bottom-button {
@@ -1090,6 +1107,77 @@ select:focus {
   white-space: nowrap;
   font-size: 12px;
   font-weight: 750;
+}
+
+.admin-history {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-subtitle {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.question-history-list {
+  display: grid;
+  gap: 4px;
+}
+
+.question-history-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.question-history-main {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.question-history-main strong,
+.question-history-main span,
+.question-history-main b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.question-history-main strong {
+  max-width: 64px;
+  font-size: 12px;
+}
+
+.question-history-main span {
+  max-width: 54px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.question-history-main b {
+  max-width: 96px;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.question-history-item time {
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.admin-empty {
+  padding: 10px 8px;
+  font-size: 12px;
 }
 
 @media (max-width: 980px) {

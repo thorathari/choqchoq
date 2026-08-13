@@ -163,6 +163,12 @@ function didCriticalGameSurfaceChange(previous, next) {
     previous.game.phase !== next.game.phase ||
     previous.game.roundId !== next.game.roundId ||
     previous.game.hostId !== next.game.hostId ||
+    previous.game.category !== next.game.category ||
+    previous.game.chosung !== next.game.chosung ||
+    previous.game.answer !== next.game.answer ||
+    JSON.stringify(previous.game.hints || []) !== JSON.stringify(next.game.hints || []) ||
+    previous.game.reissueRequestCount !== next.game.reissueRequestCount ||
+    previous.game.timeExtensionRequestCount !== next.game.timeExtensionRequestCount ||
     previous.me.status !== next.me.status ||
     previous.me.role !== next.me.role
   );
@@ -315,6 +321,12 @@ function formatChatTime(value) {
   const hour = date.getHours() % 12 || 12;
   const minute = String(date.getMinutes()).padStart(2, "0");
   return `${period} ${hour}:${minute}`;
+}
+
+function formatHistoryDate(value) {
+  const date = new Date(value || Date.now());
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getMonth() + 1}/${date.getDate()} ${formatChatTime(date)}`;
 }
 
 function currentDeadline() {
@@ -657,7 +669,7 @@ function chatPanel() {
         </div>
         <button class="scroll-bottom-button ${isChatScrolledAway ? "visible" : ""}" type="button" data-action="chat-bottom" aria-label="맨 아래로 이동">↓</button>
         <form class="chat-form" data-form="chat" autocomplete="off">
-          <input name="message" maxlength="300" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="send" aria-autocomplete="none" placeholder="${placeholder}" required />
+          <textarea name="message" maxlength="300" rows="1" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="send" aria-autocomplete="none" placeholder="${placeholder}" required></textarea>
           <button class="primary" type="submit">전송</button>
         </form>
       </div>
@@ -923,6 +935,7 @@ function adminPanel() {
     .filter((user) => user.status === "playing")
     .map((user) => `<option value="${user.id}">${escapeHtml(user.nickname)}</option>`)
     .join("");
+  const historyRows = (state.questionHistory || []).slice(0, 12);
   return html`
     <section class="panel admin-panel">
       <div class="panel-header">
@@ -948,8 +961,29 @@ function adminPanel() {
             </div>
           `).join("")}
         </div>
+        <div class="admin-history">
+          <div class="admin-subtitle">출제 내역</div>
+          ${historyRows.length ? `
+            <div class="question-history-list">
+              ${historyRows.map(questionHistoryItem).join("")}
+            </div>
+          ` : `<div class="empty admin-empty">아직 출제 내역이 없습니다.</div>`}
+        </div>
       </div>
     </section>
+  `;
+}
+
+function questionHistoryItem(item) {
+  return html`
+    <div class="question-history-item">
+      <div class="question-history-main">
+        <strong>${escapeHtml(item.hostNickname || "알 수 없음")}</strong>
+        <span>${escapeHtml(item.category)}</span>
+        <b>${escapeHtml(item.answer)}</b>
+      </div>
+      <time>${escapeHtml(formatHistoryDate(item.createdAt))}</time>
+    </div>
   `;
 }
 
@@ -990,7 +1024,7 @@ function formData(form) {
 
 function focusChatInput() {
   if (Date.now() < suppressChatFocusUntil) return;
-  const input = document.querySelector('.chat-form input[name="message"]');
+  const input = document.querySelector('.chat-form [name="message"]');
   if (input) {
     chatDraftFocused = true;
     input.focus({ preventScroll: true });
@@ -1025,7 +1059,7 @@ function scheduleChatInputViewportAdjust(delay = 80) {
 
 function keepChatInputAboveKeyboard() {
   if (!chatDraftFocused) return;
-  const input = document.querySelector('.chat-form input[name="message"]');
+  const input = document.querySelector('.chat-form [name="message"]');
   if (!input) return;
 
   input.scrollIntoView({ block: "end", inline: "nearest" });
@@ -1037,7 +1071,7 @@ function keepChatInputAboveKeyboard() {
 }
 
 function getChatDraft() {
-  const input = document.querySelector('.chat-form input[name="message"]');
+  const input = document.querySelector('.chat-form [name="message"]');
   if (input) syncChatDraftFromInput(input);
   if (!chatDraftValue && !chatDraftFocused) return null;
   return {
@@ -1056,7 +1090,7 @@ function syncChatDraftFromInput(input) {
 
 function restoreChatDraft(draft) {
   if (!draft) return;
-  const input = document.querySelector('.chat-form input[name="message"]');
+  const input = document.querySelector('.chat-form [name="message"]');
   if (!input) return;
   input.value = draft.value;
   if (draft.shouldFocus && Date.now() >= suppressChatFocusUntil) input.focus({ preventScroll: true });
@@ -1262,6 +1296,13 @@ document.addEventListener("click", async (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") hideChatContextMenu();
+});
+
+app.addEventListener("keydown", (event) => {
+  const input = event.target.closest?.('.chat-form textarea[name="message"]');
+  if (!input || event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+  event.preventDefault();
+  input.closest("form")?.requestSubmit();
 });
 
 window.addEventListener("resize", hideChatContextMenu);

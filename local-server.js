@@ -39,6 +39,7 @@ function defaultStore() {
     users: [],
     scoreEvents: [],
     chatMessages: [],
+    questionHistory: [],
     game: {
       phase: "waiting",
       hostId: null,
@@ -598,7 +599,8 @@ function publicState(currentUser = null) {
       month: rankings("month")
     },
     recentScoreEvents: store.scoreEvents.slice(-30).reverse(),
-    chatMessages: store.chatMessages.slice(-80)
+    chatMessages: store.chatMessages.slice(-80),
+    questionHistory: currentUser?.role === "admin" ? (store.questionHistory || []).slice(0, 50) : []
   };
 }
 
@@ -801,6 +803,16 @@ async function handleApi(req, res) {
         store.game.answerBanRoundId = null;
       }
       setSystemMessage(`${user.nickname}님이 문제를 냈습니다.`);
+      store.questionHistory = store.questionHistory || [];
+      store.questionHistory.unshift({
+        id: randomId("question"),
+        hostId: user.id,
+        hostNickname: user.nickname,
+        category,
+        answer,
+        createdAt: new Date().toISOString()
+      });
+      store.questionHistory = store.questionHistory.slice(0, 200);
       addSystemChatMessage(`${user.nickname}님이 문제를 출제하였습니다. 주제: ${category} / 문제: ${store.game.chosung}`);
       scheduleTimers();
       saveStore();

@@ -45,6 +45,7 @@ const clients = new Map();
 let users = [];
 let scoreEvents = [];
 let chatMessages = [];
+let questionHistory = [];
 let broadcastQueued = false;
 let deadlineBroadcastTimer = null;
 let initialized = false;
@@ -197,10 +198,11 @@ function serveStatic(req, res) {
 
 async function initMemory() {
   if (initialized) return;
-  const [dbUsers, dbScoreEvents, dbChatMessages] = await Promise.all([
+  const [dbUsers, dbScoreEvents, dbChatMessages, dbQuestionHistory] = await Promise.all([
     supabaseRequest("choq_users?select=*&order=created_at.asc", { prefer: "" }),
     supabaseRequest("choq_score_events?select=*&order=created_at.asc&limit=100000", { prefer: "" }).catch(() => []),
-    supabaseRequest("choq_chat_messages?select=*,choq_users(nickname,role)&order=created_at.desc&limit=200", { prefer: "" }).catch(() => [])
+    supabaseRequest("choq_chat_messages?select=*,choq_users(nickname,role)&order=created_at.desc&limit=200", { prefer: "" }).catch(() => []),
+    supabaseRequest("choq_question_history?select=*&order=created_at.desc&limit=200", { prefer: "" }).catch(() => [])
   ]);
   users = dbUsers.map((user) => memoryUserFromDb(user, "away"));
   scoreEvents = dbScoreEvents.map((event) => ({
@@ -224,6 +226,14 @@ async function initMemory() {
       text: message.message,
       createdAt: message.created_at
     }));
+  questionHistory = dbQuestionHistory.map((item) => ({
+    id: item.id,
+    hostId: item.host_id,
+    hostNickname: item.host_nickname,
+    category: item.category,
+    answer: item.answer,
+    createdAt: item.created_at
+  }));
   initialized = true;
 }
 
@@ -552,6 +562,7 @@ function publicState(currentUser = null) {
       month: rankings("month")
     },
     chatMessages: chatMessages.slice(-80),
+    questionHistory: currentUser?.role === "admin" ? questionHistory.slice(0, 50) : [],
     recentScoreEvents: scoreEvents.slice(-30).reverse()
   };
 }
@@ -685,6 +696,36 @@ function addSystemChatMessage(text) {
   chatMessages.push(chatMessage);
   chatMessages = chatMessages.slice(-200);
   return chatMessage;
+}
+
+function addQuestionHistory(user, category, answer) {
+  const item = {
+    id: randomId("question"),
+    hostId: user.id,
+    hostNickname: user.nickname,
+    category,
+    answer,
+    createdAt: nowIso()
+  };
+  questionHistory.unshift(item);
+  questionHistory = questionHistory.slice(0, 200);
+  supabaseRequest("choq_question_history", {
+    method: "POST",
+    body: {
+      host_id: user.id,
+      host_nickname: user.nickname,
+      category,
+      answer
+    }
+  })
+    .then((rows) => {
+      const created = rows?.[0];
+      if (!created) return;
+      item.id = created.id;
+      item.createdAt = created.created_at || item.createdAt;
+    })
+    .catch((error) => console.error("Failed to persist question history:", error.message));
+  return item;
 }
 
 function statusLabel(status) {
@@ -976,6 +1017,7 @@ async function handleApi(req, res, pathname) {
     game.lastGuessDeadlineAt = null;
     game.answerBanRoundId = game.answerBanUserId && game.answerBanUserId !== user.id ? game.roundId : null;
     game.lastSystemMessage = `${user.nickname}님이 문제를 냈습니다.`;
+    addQuestionHistory(user, category, answer);
     addSystemChatMessage(`${user.nickname}님이 문제를 출제하였습니다. 주제: ${category} / 문제: ${game.chosung}`);
     sendJson(res, 200, { ok: true, state: publicState(user) });
     return true;
