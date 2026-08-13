@@ -301,6 +301,15 @@ function formatTime(ms) {
   return `${minutes}:${seconds}`;
 }
 
+function formatChatTime(value) {
+  const date = new Date(value || Date.now());
+  if (Number.isNaN(date.getTime())) return "";
+  const period = date.getHours() < 12 ? "오전" : "오후";
+  const hour = date.getHours() % 12 || 12;
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${period} ${hour}:${minute}`;
+}
+
 function currentDeadline() {
   if (!state?.game) return null;
   if (state.game.phase === "countdown") return state.game.countdownEndsAt;
@@ -555,6 +564,7 @@ function activeView(isHost) {
   return html`
     <div class="problem">
       <div class="chosung"><span class="category">${escapeHtml(game.category)}</span><span>${escapeHtml(game.chosung)}</span></div>
+      ${isHost && game.answer ? `<div class="host-answer-line"><span>정답</span><strong>${escapeHtml(game.answer)}</strong></div>` : ""}
       ${isHost ? hostTools() : guessTools()}
       ${roundHints()}
     </div>
@@ -651,9 +661,12 @@ function chatPanel() {
 function visibleChatMessages(sourceState = state) {
   const serverMessages = sourceState?.chatMessages || [];
   const visiblePendingMessages = pendingChatMessages.filter((pending) => !serverMessages.some((message) => (
-    message.userId === pending.userId &&
-    message.text === pending.text &&
-    Math.abs(new Date(message.createdAt || 0).getTime() - pending.createdAtMs) < 15000
+    String(message.id || "") === String(pending.id || "") ||
+    (
+      message.userId === pending.userId &&
+      message.text === pending.text &&
+      Math.abs(new Date(message.createdAt || 0).getTime() - pending.createdAtMs) < 60000
+    )
   )));
   const messages = [
     ...serverMessages,
@@ -697,7 +710,8 @@ function chatMessageVisualSignature(message) {
     message.role || "",
     message.userId || "",
     message.nickname || "",
-    message.text || ""
+    message.text || "",
+    formatChatTime(message.createdAt || message.createdAtMs)
   ].join("\u001f");
 }
 
@@ -758,11 +772,13 @@ function chatMessage(message) {
   const key = escapeHtml(chatMessageKey(message));
   const signature = escapeHtml(chatMessageSignature(message));
   const visualSignature = escapeHtml(chatMessageVisualSignature(message));
+  const time = formatChatTime(message.createdAt || message.createdAtMs);
   if (message.type === "system" || message.role === "system") {
     return html`
       <div class="chat-message system" data-chat-key="${key}" data-chat-signature="${signature}" data-chat-visual="${visualSignature}" ${message.id ? `data-message-id="${escapeHtml(message.id)}"` : ""}>
         <div class="chat-bubble-row system">
           <div class="chat-bubble system-bubble">${escapeHtml(message.text)}</div>
+          <span class="chat-time system-time">${escapeHtml(time)}</span>
         </div>
       </div>
     `;
@@ -779,6 +795,7 @@ function chatMessage(message) {
       ${showMeta ? `<div class="chat-meta ${mine ? "mine-meta" : ""}">${meta}</div>` : ""}
       <div class="chat-bubble-row ${mine ? "mine" : ""}">
         <div class="chat-bubble">${escapeHtml(message.text)}</div>
+        <span class="chat-time">${escapeHtml(time)}</span>
       </div>
     </div>
   `;
@@ -1025,8 +1042,10 @@ function restoreChatDraft(draft) {
 }
 
 function addPendingChatMessage(text) {
+  const id = `pending-${Date.now()}-${++pendingChatSerial}`;
   const message = {
-    id: `pending-${Date.now()}-${++pendingChatSerial}`,
+    id,
+    clientId: id,
     userId: state.me.id,
     nickname: state.me.nickname,
     role: state.me.role,
@@ -1041,15 +1060,17 @@ function addPendingChatMessage(text) {
 }
 
 function removePendingChatMessage(id) {
-  const index = pendingChatMessages.findIndex((message) => message.id === id);
+  const index = pendingChatMessages.findIndex((message) => message.id === id || message.clientId === id);
   if (index >= 0) pendingChatMessages.splice(index, 1);
 }
 
 function confirmPendingChatMessage(id, message) {
-  const index = pendingChatMessages.findIndex((item) => item.id === id);
+  const index = pendingChatMessages.findIndex((item) => item.id === id || item.clientId === id);
   if (index < 0) return false;
+  const clientId = pendingChatMessages[index].clientId || id;
   pendingChatMessages[index] = {
     id: message.id || id,
+    clientId,
     userId: message.userId,
     nickname: message.nickname,
     role: message.role,
@@ -1299,6 +1320,10 @@ app.addEventListener("submit", async (event) => {
       } else if (result.message) {
         confirmPendingChatMessage(pendingId, result.message);
         renderChatMessagesOnly({ forceBottom: true });
+        setTimeout(() => {
+          removePendingChatMessage(pendingId);
+          renderChatMessagesOnly({ forceBottom: keepChatPinnedToBottom });
+        }, 5000);
         requestAnimationFrame(focusChatInput);
       } else if (!realtimeConnected) {
         loadState({ forceChatBottom: true })
