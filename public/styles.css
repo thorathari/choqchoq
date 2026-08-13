@@ -271,7 +271,7 @@ textarea {
 .hero-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  min-height: 228px;
+  min-height: 176px;
   overflow: hidden;
   border-color: rgba(37, 99, 235, 0.18);
   box-shadow: var(--soft-shadow);
@@ -325,10 +325,9 @@ textarea {
 }
 
 .hero-body {
-  height: 174px;
-  padding: 10px 14px 14px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  min-height: 122px;
+  padding: 9px 14px 12px;
+  overflow: visible;
 }
 
 .auth-wrap {
@@ -433,27 +432,27 @@ textarea {
 }
 
 .message {
-  padding: 9px 11px;
+  padding: 7px 9px;
   border: 1px solid rgba(40, 90, 166, 0.18);
   border-radius: 8px;
   background: rgba(40, 90, 166, 0.1);
   color: var(--blue);
-  margin-bottom: 14px;
-  font-size: 13px;
+  margin-bottom: 4px;
+  font-size: 12px;
 }
 
 .problem {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .chosung {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
-  min-height: 52px;
-  padding: 10px 12px;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background:
@@ -461,7 +460,7 @@ textarea {
     linear-gradient(315deg, rgba(249, 115, 22, 0.08), transparent 52%),
     var(--panel-2);
   text-align: center;
-  font-size: clamp(18px, 2.3vw, 26px);
+  font-size: clamp(17px, 2.1vw, 23px);
   font-weight: 900;
   line-height: 1.15;
   overflow: hidden;
@@ -469,46 +468,38 @@ textarea {
   letter-spacing: 0;
 }
 
-.chosung > span:last-child {
+.chosung > span:not(.category):not(.host-answer-chip) {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.host-answer-line {
+.host-answer-chip {
   display: inline-flex;
   align-items: center;
-  justify-self: start;
-  max-width: 100%;
-  gap: 7px;
-  padding: 6px 9px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 150px;
+  gap: 5px;
+  min-height: 24px;
+  padding: 0 8px;
   border: 1px dashed var(--line-strong);
-  border-radius: 8px;
+  border-radius: 999px;
   background: rgba(40, 90, 166, 0.07);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   user-select: none;
 }
 
-.host-answer-line span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 20px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: var(--panel-2);
-  color: var(--muted);
-  font-weight: 800;
-}
-
-.host-answer-line strong {
-  min-width: 0;
+.host-answer-chip b {
   color: var(--text);
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 11px;
 }
 
 .answer-reveal {
@@ -607,19 +598,30 @@ textarea {
 
 .compact-host-tools {
   grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
+  gap: 5px;
 }
 
 .hint-submit-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+}
+
+.hint-submit-row .form-row {
+  gap: 0;
+}
+
+.hint-submit-row label {
+  display: none;
 }
 
 .hint-submit-row input,
 .hint-submit-row .small-button {
-  min-height: 38px;
+  min-height: 30px;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 12px;
 }
 
 .compact-host-tools .small-button {
@@ -635,16 +637,17 @@ textarea {
 }
 
 .reissue-count {
-  min-height: 30px;
-  font-size: 12px;
+  min-height: 24px;
+  padding: 0 7px;
+  font-size: 11px;
 }
 
 .round-hints {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 8px;
+  gap: 6px;
   align-items: start;
-  padding: 7px 8px;
+  padding: 5px 7px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(40, 90, 166, 0.08);
@@ -666,12 +669,12 @@ textarea {
 
 .round-hints-list span {
   max-width: 100%;
-  padding: 2px 7px;
+  padding: 1px 6px;
   border-radius: 999px;
   background: var(--panel-solid);
   color: var(--ink);
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: 11px;
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
@@ -1281,14 +1284,29 @@ textarea {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
+  .hero-panel {
+    min-height: 166px;
+  }
+
+  .hero-body {
+    min-height: 112px;
+    padding: 8px 12px 11px;
+  }
+
   .chosung {
     flex-direction: row;
     align-items: center;
     gap: 7px;
-    min-height: 56px;
-    padding: 9px 10px;
+    min-height: 44px;
+    padding: 8px 9px;
     text-align: left;
-    font-size: 18px;
+    font-size: 17px;
+  }
+
+  .host-answer-chip {
+    max-width: 112px;
+    min-height: 22px;
+    padding: 0 7px;
   }
 
   .actions > button {

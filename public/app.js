@@ -635,9 +635,12 @@ function roundAnswerReveal(reveal) {
 function activeView(isHost) {
   const game = state.game;
   return html`
-    <div class="problem">
-      <div class="chosung"><span class="category">${escapeHtml(game.category)}</span><span>${escapeHtml(game.chosung)}</span></div>
-      ${isHost && game.answer ? `<div class="host-answer-line"><span>정답</span><strong>${escapeHtml(game.answer)}</strong></div>` : ""}
+    <div class="problem ${isHost ? "host-problem" : "player-problem"}">
+      <div class="chosung">
+        <span class="category">${escapeHtml(game.category)}</span>
+        <span>${escapeHtml(game.chosung)}</span>
+        ${isHost && game.answer ? `<span class="host-answer-chip"><b>정답</b>${escapeHtml(game.answer)}</span>` : ""}
+      </div>
       ${isHost ? hostTools() : guessTools()}
       ${roundHints()}
     </div>
@@ -651,7 +654,7 @@ function hostTools() {
       <div class="hint-submit-row">
         <div class="form-row">
           <label>힌트</label>
-          <input name="text" maxlength="80" placeholder="자유 힌트" required />
+          <input name="text" maxlength="80" placeholder="힌트" aria-label="힌트" required />
         </div>
         <button class="primary small-button" type="submit">힌트 주기</button>
       </div>
