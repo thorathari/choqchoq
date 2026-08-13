@@ -1157,15 +1157,6 @@ select:focus {
     grid-template-rows: minmax(250px, 1fr) auto;
   }
 
-  body.chat-keyboard-open .chat-panel {
-    min-height: 0;
-  }
-
-  body.chat-keyboard-open .chat-body {
-    height: clamp(220px, calc(var(--app-vvh) - 180px), 430px);
-    grid-template-rows: minmax(150px, 1fr) auto;
-  }
-
   body.chat-keyboard-open .chat-form {
     padding-bottom: max(2px, env(safe-area-inset-bottom));
   }
