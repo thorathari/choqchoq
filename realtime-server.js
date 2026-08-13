@@ -25,7 +25,7 @@ const PUBLIC_ROOT = path.resolve(PUBLIC_DIR);
 const KEEPALIVE_MS = 25000;
 const PRESENCE_TIMEOUT_MS = 30 * 1000;
 const PRESENCE_SWEEP_MS = 15000;
-const HOST_QUESTION_TIMEOUT_MS = 3 * 60 * 1000;
+const HOST_QUESTION_TIMEOUT_MS = 60 * 1000;
 
 const STATUSES = new Set(["playing", "watching", "away"]);
 const STATUS_LABELS = {
@@ -121,6 +121,10 @@ function memoryUserFromDb(user, status = "away") {
   };
 }
 
+function persistedStatus(user) {
+  return STATUSES.has(user?.status) ? user.status : "away";
+}
+
 function publicUser(user) {
   if (!user) return null;
   return {
@@ -204,7 +208,7 @@ async function initMemory() {
     supabaseRequest("choq_chat_messages?select=*,choq_users(nickname,role)&order=created_at.desc&limit=200", { prefer: "" }).catch(() => []),
     supabaseRequest("choq_question_history?select=*&order=created_at.desc&limit=200", { prefer: "" }).catch(() => [])
   ]);
-  users = dbUsers.map((user) => memoryUserFromDb(user, "away"));
+  users = dbUsers.map((user) => memoryUserFromDb(user, persistedStatus(user)));
   scoreEvents = dbScoreEvents.map((event) => ({
     id: event.id,
     userId: event.user_id,
@@ -243,7 +247,7 @@ async function refreshUser(userId) {
   const existing = users.find((user) => user.id === fresh.id);
   const next = existing
     ? { ...existing, ...fresh, status: existing.status, lastSeenAt: existing.lastSeenAt }
-    : memoryUserFromDb(fresh, "away");
+    : memoryUserFromDb(fresh, persistedStatus(fresh));
   if (existing) users[users.indexOf(existing)] = next;
   else users.push(next);
   return next;
@@ -425,7 +429,7 @@ function advanceGame() {
     const nextHost = chooseRandom(nextHostCandidates(game.hostId));
     if (previousHost) addScore(previousHost.id, SCORE_TYPES.HOST_TIMEOUT, -2, { reason: "host_question_timeout" });
     if (!nextHost) returnToWaiting("출제권을 넘길 참여자가 없어 대기 상태로 돌아갑니다.");
-    else setHost(nextHost.id, `${previousHost?.nickname || "출제자"}님이 3분 동안 문제를 내지 않아 -2점 처리되고 출제권이 넘어갔습니다.`);
+    else setHost(nextHost.id, `${previousHost?.nickname || "출제자"}님이 1분 동안 문제를 내지 않아 -2점 처리되고 출제권이 넘어갔습니다.`);
     changed = true;
   }
 

@@ -22,7 +22,7 @@ const SCORE_TYPES = {
   ADMIN_ADJUST: "ADMIN_ADJUST"
 };
 
-const HOST_QUESTION_TIMEOUT_MS = 3 * 60 * 1000;
+const HOST_QUESTION_TIMEOUT_MS = 60 * 1000;
 const PRESENCE_TIMEOUT_MS = 30 * 1000;
 
 let store = loadStore();
@@ -448,7 +448,7 @@ function handleHostQuestionDeadline() {
   }
   const nextHost = chooseRandom(candidates);
   const previousHost = store.users.find((user) => user.id === hostId) || null;
-  setHost(nextHost.id, `${previousHost?.nickname || "출제자"}님이 3분 동안 문제를 내지 않아 -2점 처리되고 출제권이 넘어갔습니다.`);
+  setHost(nextHost.id, `${previousHost?.nickname || "출제자"}님이 1분 동안 문제를 내지 않아 -2점 처리되고 출제권이 넘어갔습니다.`);
 }
 
 function finishRoundWithWinner(winner) {

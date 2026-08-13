@@ -1070,7 +1070,6 @@ function focusChatInput() {
   if (input) {
     chatDraftFocused = true;
     input.focus({ preventScroll: true });
-    scheduleChatInputViewportAdjust();
   }
 }
 
@@ -1101,14 +1100,6 @@ function scheduleChatInputViewportAdjust(delay = 80) {
 
 function keepChatInputAboveKeyboard() {
   if (!chatDraftFocused) return;
-  const input = document.querySelector('.chat-form [name="message"]');
-  if (!input) return;
-
-  input.scrollIntoView({ block: "end", inline: "nearest" });
-  const viewport = window.visualViewport;
-  const viewportBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
-  const gap = viewportBottom - input.getBoundingClientRect().bottom;
-  if (gap < 10) window.scrollBy({ top: 10 - gap, left: 0, behavior: "auto" });
   if (keepChatPinnedToBottom) scrollChatToBottom();
 }
 
@@ -1146,8 +1137,7 @@ function restoreChatDraft(draft) {
 function updateChatTextareaScrollMode(input) {
   if (!input?.matches?.('textarea[name="message"]')) return;
   input.classList.remove("has-multiline");
-  const needsScroll = input.value.includes("\n") || input.scrollHeight > input.clientHeight + 1;
-  input.classList.toggle("has-multiline", needsScroll);
+  input.classList.toggle("has-multiline", input.value.includes("\n"));
 }
 
 function addPendingChatMessage(text) {
@@ -1381,10 +1371,6 @@ app.addEventListener("focusin", (event) => {
     syncChatDraftFromInput(event.target);
     setChatKeyboardMode(true);
     if (keepChatPinnedToBottom) requestAnimationFrame(scrollChatToBottom);
-    scheduleChatInputViewportAdjust(80);
-    setTimeout(() => {
-      if (chatDraftFocused) keepChatInputAboveKeyboard();
-    }, 280);
   }
 });
 
